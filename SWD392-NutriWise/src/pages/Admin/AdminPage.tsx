@@ -5,29 +5,57 @@ import {
   AttachMoney as AttachMoneyIcon,
   Assessment as AssessmentIcon,
   Dashboard as DashboardIcon,
-  Category as CategoryIcon,
-  Inventory as InventoryIcon,
+//   Category as CategoryIcon,
+//   Inventory as InventoryIcon,
   Settings as SettingsIcon,
   Facebook,
   Twitter,
   LinkedIn,
   Instagram,
-  Copyright
+  Copyright,
+  Restaurant as RestaurantIcon,
+  MenuBook as MenuBookIcon
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const AdminPage = () => {
   const drawerWidth = 240;
+  const location = useLocation();
+  const navigate = useNavigate();
   
   // Menu items cho sidebar
   const menuItems = [
-    { text: 'Bảng điều khiển', icon: <DashboardIcon /> },
-    { text: 'Quản lý người dùng', icon: <PeopleIcon /> },
-    { text: 'Quản lý đơn hàng', icon: <ShoppingCartIcon /> },
-    { text: 'Quản lý sản phẩm', icon: <InventoryIcon /> },
-    { text: 'Quản lý danh mục', icon: <CategoryIcon /> },
-    { text: 'Báo cáo', icon: <AssessmentIcon /> },
-    { text: 'Cài đặt', icon: <SettingsIcon /> },
+    { 
+      text: 'Bảng điều khiển', 
+      icon: <DashboardIcon />, 
+      path: '/nutriwise/dashboard' 
+    },
+    { 
+      text: 'Quản lý người dùng', 
+      icon: <PeopleIcon />, 
+      path: '/nutriwise/users' 
+    },
+    { 
+      text: 'Kế hoạch dinh dưỡng', 
+      icon: <RestaurantIcon />, 
+      path: '/nutriwise/nutrition-plans' 
+    },
+    { 
+      text: 'Quản lý thực đơn', 
+      icon: <MenuBookIcon />, 
+      path: '/nutriwise/meals' 
+    },
+    { 
+      text: 'Báo cáo & Thống kê', 
+      icon: <AssessmentIcon />, 
+      path: '/nutriwise/reports' 
+    },
+    { 
+      text: 'Cài đặt hệ thống', 
+      icon: <SettingsIcon />, 
+      path: '/nutriwise/settings' 
+    },
   ];
 
   // Dữ liệu mẫu cho các thẻ thống kê
@@ -212,7 +240,8 @@ const AdminPage = () => {
             {menuItems.map((item, index) => (
               <ListItem key={index} disablePadding>
                 <ListItemButton 
-                  className={index === 0 ? 'active' : ''}
+                  className={location.pathname === item.path ? 'active' : ''}
+                  onClick={() => navigate(item.path)}
                   sx={{
                     px: 2,
                     py: 1.5,
@@ -220,7 +249,7 @@ const AdminPage = () => {
                 >
                   <ListItemIcon sx={{ 
                     minWidth: 40,
-                    color: index === 0 ? 'white' : 'primary.main'
+                    color: location.pathname === item.path ? 'white' : 'primary.main'
                   }}>
                     {item.icon}
                   </ListItemIcon>
