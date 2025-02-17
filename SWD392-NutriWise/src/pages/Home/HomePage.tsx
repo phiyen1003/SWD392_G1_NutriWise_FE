@@ -197,6 +197,112 @@ const HomePage = () => {
         </Container>
       </Box>
 
+      {/* New Blog Section */}
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography variant="h3" align="center" sx={{ mb: 6, fontWeight: 600 }}>
+          Kiến thức dinh dưỡng
+        </Typography>
+        <Grid container spacing={4}>
+          {/* Example blog items */}
+          {[
+            {
+              title: 'Lợi ích của việc ăn uống lành mạnh',
+              excerpt: 'Khám phá những lợi ích sức khỏe từ việc ăn uống đúng cách...',
+              link: '#'
+            },
+            {
+              title: 'Cách xây dựng thực đơn dinh dưỡng',
+              excerpt: 'Hướng dẫn chi tiết để xây dựng thực đơn dinh dưỡng phù hợp...',
+              link: '#'
+            },
+            {
+              title: 'Những thực phẩm nên có trong chế độ ăn',
+              excerpt: 'Tìm hiểu về những thực phẩm tốt cho sức khỏe...',
+              link: '#'
+            },
+          ].map((blog, index) => (
+            <Grid item xs={12} md={4} key={index}>
+              <Paper sx={{
+                p: 3,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                borderRadius: 4,
+                transition: 'transform 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)'
+                }
+              }}>
+                <Typography variant="h6" sx={{ my: 2 }}>
+                  {blog.title}
+                </Typography>
+                <Typography color="text.secondary">
+                  {blog.excerpt}
+                </Typography>
+                <Link href={blog.link} sx={{ mt: 2, textDecoration: 'none', color: 'primary.main' }}>
+                  Đọc thêm
+                </Link>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+
+      {/* Expert Blogs Section */}
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography variant="h3" align="center" sx={{ mb: 6, fontWeight: 600 }}>
+          Blog Chuyên Gia Về Dinh Dưỡng
+        </Typography>
+        <Grid container spacing={4}>
+          {/* Example blog items */}
+          {[
+            {
+              title: 'Lợi ích của việc ăn uống lành mạnh',
+              excerpt: 'Khám phá những lợi ích sức khỏe từ việc ăn uống đúng cách...',
+              link: '#'
+            },
+            {
+              title: 'Cách xây dựng thực đơn dinh dưỡng',
+              excerpt: 'Hướng dẫn chi tiết để xây dựng thực đơn dinh dưỡng phù hợp...',
+              link: '#'
+            },
+            {
+              title: 'Những thực phẩm nên có trong chế độ ăn',
+              excerpt: 'Tìm hiểu về những thực phẩm tốt cho sức khỏe...',
+              link: '#'
+            },
+          ].map((blog, index) => (
+            <Grid item xs={12} md={4} key={index}>
+              <Paper sx={{
+                p: 3,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                borderRadius: 4,
+                transition: 'transform 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-8px)'
+                }
+              }}>
+                <Typography variant="h6" sx={{ my: 2 }}>
+                  {blog.title}
+                </Typography>
+                <Typography color="text.secondary">
+                  {blog.excerpt}
+                </Typography>
+                <Link href={blog.link} sx={{ mt: 2, textDecoration: 'none', color: 'primary.main' }}>
+                  Đọc thêm
+                </Link>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+
       {/* Footer */}
       <Box
         component="footer"

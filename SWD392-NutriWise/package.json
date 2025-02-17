@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "start": "vite preview",
-    "postinstall": "rm -rf .vercel/cache"
+    "start": "vite preview"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
