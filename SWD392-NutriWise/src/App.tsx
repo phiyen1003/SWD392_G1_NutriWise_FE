@@ -1,8 +1,13 @@
-import React from "react";
-import AppRoutes from "./routes/AppRoutes";
+import React, { Suspense, lazy } from "react";
+
+const AppRoutes = lazy(() => import("./routes/AppRoutes"));
 
 const App: React.FC = () => {
-  return <AppRoutes />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppRoutes />
+    </Suspense>
+  );
 };
 
 export default App;
