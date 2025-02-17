@@ -103,9 +103,11 @@ const HomePage = () => {
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
             Giải pháp dinh dưỡng thông minh giúp bạn có một lối sống lành mạnh
           </Typography>
-          <Button variant="contained" size="large" sx={{ mr: 2 }}>
-            Bắt đầu ngay
-          </Button>
+          <Link href="/admin" style={{ textDecoration: 'none' }}>
+            <Button variant="contained" size="large" sx={{ mr: 2 }}>
+              Bắt đầu ngay
+            </Button>
+          </Link>
           <Button variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>
             Tìm hiểu thêm
           </Button>
