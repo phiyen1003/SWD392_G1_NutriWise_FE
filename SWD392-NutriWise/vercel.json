@@ -6,6 +6,7 @@
       "config": { "distDir": "dist" }
     }
   ],
+  "cleanUrls": true,
   "scripts": {
     "build": "vite build"
   }
