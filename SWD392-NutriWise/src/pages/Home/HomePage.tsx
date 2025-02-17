@@ -33,7 +33,7 @@ const HomePage = () => {
       icon: <MenuBookIcon sx={{ fontSize: 40 }} color="primary" /> 
     },
     { 
-      title: 'Tư vấn dinh dưỡnag', 
+      title: 'Tư vấn dinh dưỡng nè', 
       description: 'Đội ngũ chuyên gia dinh dưỡng hàng đầu',
       icon: <PeopleIcon sx={{ fontSize: 40 }} color="secondary" /> 
     },
