@@ -1,7 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -9,6 +8,7 @@ export default defineConfig({
     open: true
   },
   build: {
-    chunkSizeWarningLimit: 1000 // Tăng giới hạn cảnh báo lên 1000KB (hoặc giá trị phù hợp)
-  }
-})
+    chunkSizeWarningLimit: 1000, // Increase the warning limit to 1000KB (or a suitable value)
+  },
+  base: process.env.VITE_APP_BASE_URL || '/', // Use environment variable to set base path
+});
