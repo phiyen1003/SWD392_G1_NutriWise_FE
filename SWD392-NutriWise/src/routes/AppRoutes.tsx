@@ -5,13 +5,15 @@ import AdminPage from "../pages/Admin/AdminPage";
 
 const AppRoutes: React.FC = () => {
   return (
-    <Router basename={process.env.REACT_APP_BASE_URL || '/'}>
+    <Router>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path='/' element={<HomePage/>} />
+        <Route path='/admin' element={<AdminPage/>} />
+
       </Routes>
     </Router>
   );
 };
 
 export default AppRoutes;
+
