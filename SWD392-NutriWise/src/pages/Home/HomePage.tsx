@@ -105,7 +105,7 @@ const HomePage = () => {
           </Typography>
           <Link href="/admin" style={{ textDecoration: 'none' }}>
             <Button variant="contained" size="large" sx={{ mr: 2 }}>
-              Bắt đầu ngay
+              Bắt đầu ngay nàooooo
             </Button>
           </Link>
           <Button variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>
