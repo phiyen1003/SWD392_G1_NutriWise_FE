@@ -22,6 +22,7 @@ import {
   IconButton,
   Link
 } from '@mui/material';
+import AIChat from '../../components/Home/AIChat'; // Thay đổi đường dẫn cho đúng với vị trí của AIChat
 
 const HomePage = () => {
   
@@ -85,16 +86,40 @@ const HomePage = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      {/* AI Chat Section */}
+      <Box sx={{
+        position: 'fixed',
+        bottom: 20,
+        right: 20,
+        width: 'auto',
+        height: 'auto',
+        boxShadow: 3,
+        borderRadius: 3,
+        bgcolor: '#ffffff',
+        zIndex: 1000,
+        padding:0,
+        transition: '0.3s',
+        '&:hover': {
+          boxShadow: 6,
+        },
+        overflow: 'hidden',
+      }}>
+        <AIChat/>
+      </Box>
       {/* Hero Section */}
       <Box sx={{
-        minHeight: '80vh',
+        minHeight: '100vh',
         background: 'linear-gradient(135deg, #1a237e 0%, #3949ab 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         color: 'white',
         textAlign: 'center',
-        p: 4
+        p: 0,
+        m: -8,
+        position: 'relative',
+        top: 0,
+        left: 0
       }}>
         <Container maxWidth="md">
           <Typography variant="h2" sx={{ fontWeight: 700, mb: 3 }}>
@@ -103,9 +128,9 @@ const HomePage = () => {
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
             Giải pháp dinh dưỡng thông minh giúp bạn có một lối sống lành mạnh
           </Typography>
-          <Link href="/admin" style={{ textDecoration: 'none' }}>
+          <Link href="/nutriwise/dashboard" style={{ textDecoration: 'none' }}>
             <Button variant="contained" size="large" sx={{ mr: 2 }}>
-              Bắt đầu ngay nàooooo
+              Bắt đầu ngay
             </Button>
           </Link>
           <Button variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>
