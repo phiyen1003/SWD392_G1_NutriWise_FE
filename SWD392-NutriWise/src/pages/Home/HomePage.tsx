@@ -1,4 +1,4 @@
-import { Box, Container, Grid, Typography, Button } from '@mui/material';
+import { Box, Container, Grid, Typography, Button, AppBar, Toolbar, Avatar } from "@mui/material"
 import {
   Facebook,
   Twitter,
@@ -8,8 +8,8 @@ import {
   Dashboard as DashboardIcon,
   MenuBook as MenuBookIcon,
   Assessment as AssessmentIcon,
-  People as PeopleIcon
-} from '@mui/icons-material';
+  People as PeopleIcon,
+} from "@mui/icons-material"
 import {
   Paper,
   Card,
@@ -20,33 +20,65 @@ import {
   ListItemIcon,
   ListItemText,
   IconButton,
-  Link
-} from '@mui/material';
-import AIChat from '../../components/Home/AIChat'; // Thay đổi đường dẫn cho đúng với vị trí của AIChat
+  Link,
+} from "@mui/material"
+import AIChat from "../../components/Home/AIChat"
+import { useState, useEffect } from "react"
+import AuthModal from "../../components/Home/AuthModal"
+import type { User } from "firebase/auth"
+import { signOut, onAuthStateChanged } from "firebase/auth"
+import { auth } from "../../firebase-config"
 
 const HomePage = () => {
-  
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setShowAIChat(true);
+      } else {
+        setShowAIChat(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setShowAIChat(false);
+      alert("Đăng xuất thành công!");
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
+  };
+
   // Thay đổi statsCards thành các tính năng nổi bật
   const features = [
-    { 
-      title: 'Thực đơn đa dạng', 
+    {
+      title: 'Thực đơn đa dạng',
       description: 'Hơn 1000+ công thức nấu ăn lành mạnh',
-      icon: <MenuBookIcon sx={{ fontSize: 40 }} color="primary" /> 
+      icon: <MenuBookIcon sx={{ fontSize: 40 }} color="primary" />
     },
-    { 
-      title: 'Tư vấn dinh dưỡng', 
+    {
+      title: 'Tư vấn dinh dưỡng',
       description: 'Đội ngũ chuyên gia dinh dưỡng hàng đầu',
-      icon: <PeopleIcon sx={{ fontSize: 40 }} color="secondary" /> 
+      icon: <PeopleIcon sx={{ fontSize: 40 }} color="secondary" />
     },
-    { 
-      title: 'Theo dõi sức khỏe', 
+    {
+      title: 'Theo dõi sức khỏe',
       description: 'Công cụ theo dõi chỉ số sức khỏe thông minh',
-      icon: <AssessmentIcon sx={{ fontSize: 40 }} color="success" /> 
+      icon: <AssessmentIcon sx={{ fontSize: 40 }} color="success" />
     },
-    { 
-      title: 'Cộng đồng', 
+    {
+      title: 'Cộng đồng',
       description: 'Kết nối với cộng đồng người yêu sức khỏe',
-      icon: <PeopleIcon sx={{ fontSize: 40 }} color="warning" /> 
+      icon: <PeopleIcon sx={{ fontSize: 40 }} color="warning" />
     },
   ];
 
@@ -84,28 +116,56 @@ const HomePage = () => {
     }
   ];
 
+  const handleLoginSuccess = () => {
+    setShowAIChat(false);
+    alert("Đăng nhập thành công!");
+    setShowAIChat(true);
+    window.location.reload();
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static" color="transparent" elevation={0}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            NutriWise
+          </Typography>
+          {user ? (
+            <>
+              <Avatar sx={{ bgcolor: 'primary.main', mr: 1 }}>{user.email?.[0].toUpperCase()}</Avatar>
+              <Typography variant="subtitle1" sx={{ mr: 2 }}>{user.email}</Typography>
+              <Button color="inherit" onClick={handleLogout}>Đăng xuất</Button>
+              <Typography variant="body2" sx={{ ml: 2 }}>Đăng nhập với: {user.displayName || user.email}</Typography>
+            </>
+          ) : (
+            <Button color="inherit" onClick={() => setShowLogin(true)}>Đăng nhập</Button>
+          )}
+        </Toolbar>
+      </AppBar>
       {/* AI Chat Section */}
-      <Box sx={{
-        position: 'fixed',
-        bottom: 20,
-        right: 20,
-        width: 'auto',
-        height: 'auto',
-        boxShadow: 3,
-        borderRadius: 3,
-        bgcolor: '#ffffff',
-        zIndex: 1000,
-        padding:0,
-        transition: '0.3s',
-        '&:hover': {
-          boxShadow: 6,
-        },
-        overflow: 'hidden',
-      }}>
-        <AIChat/>
-      </Box>
+      {user && showAIChat && (
+        <Box sx={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          width: 'auto',
+          height: 'auto',
+          boxShadow: 3,
+          borderRadius: 3,
+          bgcolor: '#ffffff',
+          zIndex: 1000,
+          padding: 0,
+          transition: '0.3s',
+          '&:hover': {
+            boxShadow: 6,
+          },
+          overflow: 'hidden',
+        }}>
+          <AIChat />
+        </Box>
+      )}
+      {/* Modal for Login/Register */}
+      <AuthModal open={showLogin} onClose={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />
       {/* Hero Section */}
       <Box sx={{
         minHeight: '100vh',
@@ -116,7 +176,7 @@ const HomePage = () => {
         color: 'white',
         textAlign: 'center',
         p: 0,
-        m: -8,
+        m: -1,
         position: 'relative',
         top: 0,
         left: 0
@@ -128,14 +188,16 @@ const HomePage = () => {
           <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
             Giải pháp dinh dưỡng thông minh giúp bạn có một lối sống lành mạnh
           </Typography>
-          <Link href="/nutriwise/dashboard" style={{ textDecoration: 'none' }}>
+          <Link href="#" onClick={() => setShowAIChat(true)} style={{ textDecoration: 'none' }}>
             <Button variant="contained" size="large" sx={{ mr: 2 }}>
               Bắt đầu ngay
             </Button>
           </Link>
-          <Button variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>
-            Tìm hiểu thêm
-          </Button>
+          <Link href="#" onClick={() => setShowLogin(true)} style={{ textDecoration: 'none' }}>
+            <Button variant="contained" size="large" sx={{ mr: 2 }}>
+              Đăng ký ngay
+            </Button>
+          </Link>
         </Container>
       </Box>
 
@@ -351,25 +413,25 @@ const HomePage = () => {
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <IconButton size="small" sx={{ 
+                <IconButton size="small" sx={{
                   color: '#1877f2',
                   '&:hover': { backgroundColor: 'rgba(24, 119, 242, 0.04)' }
                 }}>
                   <Facebook />
                 </IconButton>
-                <IconButton size="small" sx={{ 
+                <IconButton size="small" sx={{
                   color: '#1da1f2',
                   '&:hover': { backgroundColor: 'rgba(29, 161, 242, 0.04)' }
                 }}>
                   <Twitter />
                 </IconButton>
-                <IconButton size="small" sx={{ 
+                <IconButton size="small" sx={{
                   color: '#0a66c2',
                   '&:hover': { backgroundColor: 'rgba(10, 102, 194, 0.04)' }
                 }}>
                   <LinkedIn />
                 </IconButton>
-                <IconButton size="small" sx={{ 
+                <IconButton size="small" sx={{
                   color: '#e4405f',
                   '&:hover': { backgroundColor: 'rgba(228, 64, 95, 0.04)' }
                 }}>
@@ -453,3 +515,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
