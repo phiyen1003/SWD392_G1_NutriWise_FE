@@ -23,6 +23,7 @@ import {
   Link,
 } from "@mui/material"
 import AIChat from "../../components/Home/AIChat"
+// import AIChat from "../../components/Home/ChatComponent"
 import { useState, useEffect } from "react"
 import AuthModal from "../../components/Home/AuthModal"
 import type { User } from "firebase/auth"
@@ -238,7 +239,7 @@ const HomePage = () => {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.8, delay: 1, ease: "easeOut" }}
     >
-      <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={() => setShowAIChat(true)}>
+      <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={() => setShowLogin(true)}>
         Bắt đầu ngay
       </Button>
       <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={() => setShowLogin(true)}>
