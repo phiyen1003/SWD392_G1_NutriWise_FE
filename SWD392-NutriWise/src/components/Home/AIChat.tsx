@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Box, TextField, IconButton, Typography, Paper, Divider } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
+import { motion } from "framer-motion";
+
 
 interface Message {
   text: string;
@@ -92,55 +94,71 @@ const AIChat: React.FC = () => {
     }, 1000);
   }, [input]);
 
-  return (
-    <Paper elevation={3} sx={{ width: "100%", maxWidth: 400, mx: "auto", p: 1, borderRadius: 2, boxShadow: 5 }}>
-      <Typography variant="h5" sx={{ textAlign: "center", mb: 2, color: "primary.main" }}>
-        NutriWise AI Chat
-      </Typography>
-      <Divider sx={{ mb: 2 }} />
-      <Box sx={{ height: 300, overflowY: "auto", p: 1, bgcolor: "#f5f5f5", borderRadius: 2, boxShadow: 1 }}>
-        {messages.map((msg, index) => (
-          <Box
-            key={index}
-            sx={{
-              display: "flex",
-              justifyContent: msg.sender === "user" ? "flex-end" : "flex-start",
-              mb: 2,
-            }}
-          >
-            <Paper
-              elevation={1}
-              sx={{
-                p: 1,
-                maxWidth: "80%",
-                bgcolor: msg.sender === "user" ? "primary.light" : "background.paper",
-                color: msg.sender === "user" ? "primary.contrastText" : "text.primary",
-                whiteSpace: "pre-wrap",
-                borderRadius: 2,
-              }}
+    return (
+      <Paper
+        elevation={4}
+        sx={{
+          position: "fixed",
+          width: 400,
+          height: 540,
+          borderRadius: 4,
+          bgcolor: "rgba(255, 255, 255, 0.9)",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0px 8px 20px rgba(0, 0, 0, 0.15)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        <Typography variant="h6" sx={{ textAlign: "center", py: 1.5, bgcolor: "primary.main", color: "#fff" }}>
+          NutriWise AI Chat
+        </Typography>
+        <Divider />
+        <Box sx={{ flex: 1, overflowY: "auto", p: 2, bgcolor: "#f9f9f9" }}>
+          {messages.map((msg, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <Typography variant="body1">{msg.text}</Typography>
-            </Paper>
-          </Box>
-        ))}
-        <div ref={messagesEndRef} />
-      </Box>
-      <Box sx={{ display: "flex", mt: 2 }}>
-        <TextField
-          fullWidth
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about nutrition..."
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          variant="outlined"
-          size="small"
-        />
-        <IconButton color="primary" onClick={sendMessage} sx={{ ml: 1 }}>
-          <SendIcon />
-        </IconButton>
-      </Box>
-    </Paper>
-  );
-};
+              <Box sx={{ display: "flex", justifyContent: msg.sender === "user" ? "flex-end" : "flex-start", mb: 1 }}>
+                <Paper
+                  elevation={2}
+                  sx={{
+                    p: 1.5,
+                    maxWidth: "75%",
+                    bgcolor: msg.sender === "user" ? "primary.light" : "grey.200",
+                    color: msg.sender === "user" ? "primary.contrastText" : "text.primary",
+                    borderRadius: 2,
+                    boxShadow: 1,
+                  }}
+                >
+                  <Typography variant="body2">{msg.text}</Typography>
+                </Paper>
+              </Box>
+            </motion.div>
+          ))}
+          <div ref={messagesEndRef} />
+        </Box>
+        <Divider />
+        <Box sx={{ display: "flex", p: 1 }}>
+          <TextField
+            fullWidth
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Hỏi về dinh dưỡng..."
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            variant="outlined"
+            size="small"
+            sx={{ bgcolor: "white", borderRadius: 2 }}
+          />
+          <IconButton color="primary" onClick={sendMessage} sx={{ ml: 1 }}>
+            <SendIcon />
+          </IconButton>
+        </Box>
+      </Paper>
+    );
+  };
 
 export default AIChat;

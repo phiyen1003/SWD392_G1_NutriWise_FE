@@ -28,6 +28,7 @@ import AuthModal from "../../components/Home/AuthModal"
 import type { User } from "firebase/auth"
 import { signOut, onAuthStateChanged } from "firebase/auth"
 import { auth } from "../../firebase-config"
+import { motion } from "framer-motion";
 
 const HomePage = () => {
   const [showAIChat, setShowAIChat] = useState(false);
@@ -124,82 +125,128 @@ const HomePage = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-      <AppBar position="static" color="transparent" elevation={0}>
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            NutriWise
-          </Typography>
-          {user ? (
-            <>
-              <Avatar sx={{ bgcolor: 'primary.main', mr: 1 }}>{user.email?.[0].toUpperCase()}</Avatar>
-              <Typography variant="subtitle1" sx={{ mr: 2 }}>{user.email}</Typography>
-              <Button color="inherit" onClick={handleLogout}>Đăng xuất</Button>
-              <Typography variant="body2" sx={{ ml: 2 }}>Đăng nhập với: {user.displayName || user.email}</Typography>
-            </>
-          ) : (
-            <Button color="inherit" onClick={() => setShowLogin(true)}>Đăng nhập</Button>
-          )}
-        </Toolbar>
-      </AppBar>
-      {/* AI Chat Section */}
-      {user && showAIChat && (
-        <Box sx={{
-          position: 'fixed',
-          bottom: 20,
-          right: 20,
-          width: 'auto',
-          height: 'auto',
-          boxShadow: 3,
-          borderRadius: 3,
-          bgcolor: '#ffffff',
-          zIndex: 1000,
-          padding: 0,
-          transition: '0.3s',
-          '&:hover': {
-            boxShadow: 6,
-          },
-          overflow: 'hidden',
-        }}>
-          <AIChat />
-        </Box>
-      )}
+<Box sx={{ display: 'flex', flexDirection: 'column' ,}}>
+{user && showAIChat && (
+    <Box
+      sx={{
+        position: "fixed",
+        bottom: 0,
+        right: 0,
+        width: 400,
+        height: 540,
+        borderRadius: 4,
+        bgcolor: "rgba(255, 255, 255, 0.95)",
+        backdropFilter: "blur(8px)",
+        boxShadow: "0px 6px 16px rgba(0, 0, 0, 0.15)",
+        zIndex: 1000,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        transition: "transform 0.3s ease-in-out, opacity 0.3s ease-in-out",
+        transform: showAIChat ? "scale(1)" : "scale(0.95)",
+        opacity: showAIChat ? 1 : 0,
+      }}
+    >
+      <AIChat />
+    </Box> 
+  )}
+
+<AppBar position="fixed" color="transparent" elevation={0} sx={{ backdropFilter: 'blur(10px)', backgroundColor: 'rgba(255, 255, 255, 0.1)', px: 2 }}>
+  <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
+    {/* Logo hoặc tiêu đề */}
+    <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'white' }}>
+      NutriWise
+    </Typography>
+
+    {/* Hiển thị thông tin người dùng hoặc nút đăng nhập */}
+    {user ? (
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Avatar sx={{ bgcolor: 'primary.main', mr: 1 }}>
+          {user.email?.[0].toUpperCase()}
+        </Avatar>
+        <Typography variant="subtitle1" sx={{ mr: 2 }}>
+          {user.email}
+        </Typography>
+        <Button color="error" variant="outlined" onClick={handleLogout} sx={{ borderColor: 'white', color: 'white', '&:hover': { backgroundColor: 'rgba(255,255,255,0.2)' } }}>
+          Đăng xuất
+        </Button>
+      </Box>
+    ) : (
+      <Button variant="contained" color="info" onClick={() => setShowLogin(true)} sx={{ fontWeight: 'bold' }}>
+        Đăng nhập
+      </Button>
+    )}
+  </Toolbar>
+</AppBar>
+
       {/* Modal for Login/Register */}
       <AuthModal open={showLogin} onClose={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />
+
       {/* Hero Section */}
-      <Box sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1a237e 0%, #3949ab 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        textAlign: 'center',
-        p: 0,
-        m: -1,
-        position: 'relative',
-        top: 0,
-        left: 0
-      }}>
-        <Container maxWidth="md">
-          <Typography variant="h2" sx={{ fontWeight: 700, mb: 3 }}>
-            Sống Khỏe Mỗi Ngày Cùng NutriWise
-          </Typography>
-          <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
-            Giải pháp dinh dưỡng thông minh giúp bạn có một lối sống lành mạnh
-          </Typography>
-          <Link href="#" onClick={() => setShowAIChat(true)} style={{ textDecoration: 'none' }}>
-            <Button variant="contained" size="large" sx={{ mr: 2 }}>
-              Bắt đầu ngay
-            </Button>
-          </Link>
-          <Link href="#" onClick={() => setShowLogin(true)} style={{ textDecoration: 'none' }}>
-            <Button variant="contained" size="large" sx={{ mr: 2 }}>
-              Đăng ký ngay
-            </Button>
-          </Link>
-        </Container>
-      </Box>
+      <Box
+  sx={{
+    minHeight: "100vh",
+    background: "linear-gradient(135deg, #1a237e 0%, #3949ab 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "white",
+    textAlign: "center",
+    p: 0,
+    m: -1,
+    position: "relative",
+    top: 0,
+    left: 0,
+  }}
+>
+  <Container maxWidth="md">
+    {/* Tiêu đề với hiệu ứng fade-in */}
+    <motion.div
+      initial={{ opacity: 0, y: -30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1, ease: "easeOut" }}
+    >
+     <Typography variant="h2" sx={{ fontWeight: 700, mb: 3, display: "flex", gap: 1, justifyContent: "center" }}>
+  {"Sống Khỏe Mỗi Ngày Cùng NutriWise".split(" ").map((word, index) => (
+    <motion.span
+      key={index}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.5, duration: 2 }}
+      style={{ display: "inline-block" }}
+    >
+      {word}
+    </motion.span>
+  ))}
+</Typography>
+    </motion.div>
+
+    {/* Mô tả với hiệu ứng trễ nhẹ */}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+    >
+      <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
+        Giải pháp dinh dưỡng thông minh giúp bạn có một lối sống lành mạnh
+      </Typography>
+    </motion.div>
+
+    {/* Nút với hiệu ứng xuất hiện từ từ */}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.8, delay: 1, ease: "easeOut" }}
+    >
+      <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={() => setShowAIChat(true)}>
+        Bắt đầu ngay
+      </Button>
+      <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={() => setShowLogin(true)}>
+        Đăng ký ngay
+      </Button>
+    </motion.div>
+  </Container>
+</Box>;
 
       {/* Features Section */}
       <Container maxWidth="lg" sx={{ py: 8 }}>
