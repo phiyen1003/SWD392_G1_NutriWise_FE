@@ -1,131 +1,120 @@
-import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  TextField,
   Typography,
   Box,
-  Tabs,
-  Tab,
-} from "@mui/material"
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
-import { auth } from "../../firebase-config"
+  TextField,
+} from "@mui/material";
+import { googleLogin, googleCallback } from "../../api/accountApi";
+import { CompleteProfileRequest } from "../../api/accountApi";
 
 interface AuthModalProps {
-  open: boolean
-  onClose: () => void
-  onLoginSuccess: (user: { email: string }) => void
+  open: boolean;
+  onClose: () => void;
+  onLoginSuccess: (token: string, email: string) => void; // Cập nhật để nhận token và email
+  onCompleteProfile: (data: CompleteProfileRequest) => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onLoginSuccess }) => {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [tabValue, setTabValue] = useState(0)
-  const [error, setError] = useState("")
+const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onLoginSuccess, onCompleteProfile }) => {
+  const [error, setError] = useState("");
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [profileData, setProfileData] = useState<CompleteProfileRequest>({
+    userId: "",
+    fullName: "",
+    email: "",
+  });
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue)
-    setError("")
-  }
+  // Xử lý callback từ Google OAuth
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get("token");
+    const email = urlParams.get("email");
 
-  const handleRegister = async () => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-      onLoginSuccess({ email: userCredential.user.email! })
-      onClose()
-    }catch (error) {
-      if (error instanceof Error) {
-        setError(error.message)
-      } else {
-        setError("An unexpected error occurred.")
-      }
+    if (token && email) {
+      onLoginSuccess(token, email); // Gọi onLoginSuccess với token và email
+      setShowProfileForm(true);
+      window.history.replaceState({}, document.title, window.location.pathname); // Xóa query string
     }
-    
-  }
-
-  const handleLogin = async () => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      onLoginSuccess({ email: userCredential.user.email! })
-      onClose()
-    } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message)
-      } else {
-        setError("An unexpected error occurred.")
-      }
-    }
-    
-  }
+  }, [onLoginSuccess]);
 
   const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      onLoginSuccess({ email: result.user.email! });
-      onClose();
+      await googleLogin(); // Redirect đến trang đăng nhập Google qua backend
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("An unexpected error occurred.");
-      }
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred. Please check API configuration."
+      );
     }
-  }
+  };
+
+  const handleProfileSubmit = () => {
+    if (!profileData.userId || !profileData.fullName || !profileData.email) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    onCompleteProfile(profileData);
+    setShowProfileForm(false);
+  };
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>
-        <Tabs value={tabValue} onChange={handleTabChange} centered>
-          <Tab label="Login" />
-          <Tab label="Register" />
-        </Tabs>
-      </DialogTitle>
+      <DialogTitle>Đăng nhập</DialogTitle>
       <DialogContent>
         {error && (
           <Typography color="error" variant="body2" sx={{ mb: 2 }}>
             {error}
           </Typography>
         )}
-        <Box component="form" sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Box>
+        {showProfileForm ? (
+          <Box component="form" sx={{ mt: 1 }}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="User ID"
+              value={profileData.userId}
+              onChange={(e) => setProfileData({ ...profileData, userId: e.target.value })}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Full Name"
+              value={profileData.fullName}
+              onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Email"
+              type="email"
+              value={profileData.email}
+              onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+            />
+          </Box>
+        ) : (
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Vui lòng đăng nhập bằng tài khoản Google của bạn.
+          </Typography>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={tabValue === 0 ? handleLogin : handleRegister}>{tabValue === 0 ? "Login" : "Register"}</Button>
-        <Button onClick={handleGoogleLogin}>Login with Google</Button>
+        <Button onClick={onClose}>Hủy</Button>
+        {showProfileForm ? (
+          <Button onClick={handleProfileSubmit}>Hoàn thiện profile</Button>
+        ) : (
+          <Button onClick={handleGoogleLogin}>Đăng nhập với Google</Button>
+        )}
       </DialogActions>
     </Dialog>
-  )
-}
+  );
+};
 
-export default AuthModal
-
+export default AuthModal;

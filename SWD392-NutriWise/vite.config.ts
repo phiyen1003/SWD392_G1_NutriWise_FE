@@ -5,10 +5,18 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'https://nutriwise.azurewebsites.net',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
   build: {
-    chunkSizeWarningLimit: 1000, // Increase the warning limit to 1000KB (or a suitable value)
+    chunkSizeWarningLimit: 1000,
   },
-  base: process.env.VITE_APP_BASE_URL || '/', // Use environment variable to set base path
+  base: process.env.VITE_APP_BASE_URL || '/',
 });
