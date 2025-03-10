@@ -1,127 +1,55 @@
-// import apiClient from "./apiClient";
-
-// export interface HealthProfile {
-//   id: string;
-//   userId: string;
-//   age: number;
-//   gender: string;
-//   height: number;
-//   weight: number;
-// }
-
-// export const getAllHealthProfiles = async (): Promise<HealthProfile[]> => {
-//   try {
-//     const response = await apiClient.get("/HealthProfile/GetAllHealthProfiles");
-//     return response.data;
-//   } catch (error) {
-//     throw new Error("Failed to fetch health profiles");
-//   }
-// };
-
-// export const getHealthProfileById = async (id: string): Promise<HealthProfile> => {
-//   try {
-//     const response = await apiClient.get(`/HealthProfile/GetHealthProfileById/${id}`);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error(`Failed to fetch health profile with id ${id}`);
-//   }
-// };
-
-// export const createHealthProfile = async (healthProfile: HealthProfile): Promise<HealthProfile> => {
-//   try {
-//     const response = await apiClient.post("/HealthProfile/CreateHealthProfile", healthProfile);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error("Failed to create health profile");
-//   }
-// };
-
-// export const updateHealthProfile = async (id: string, healthProfile: HealthProfile): Promise<HealthProfile> => {
-//   try {
-//     const response = await apiClient.put(`/HealthProfile/UpdateHealthProfile/${id}`, healthProfile);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error(`Failed to update health profile with id ${id}`);
-//   }
-// };
-
-// export const deleteHealthProfile = async (id: string): Promise<void> => {
-//   try {
-//     await apiClient.delete(`/HealthProfile/DeleteHealthProfile/${id}`);
-//   } catch (error) {
-//     throw new Error(`Failed to delete health profile with id ${id}`);
-//   }
-// };
-
-// export const searchHealthProfile = async (query: string): Promise<HealthProfile[]> => {
-//   try {
-//     const response = await apiClient.get(`/HealthProfile/SearchHealthProfile?query=${query}`);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error("Failed to search health profiles");
-//   }
-// };
-
-
+// src/api/healthProfileApi.ts
 import apiClient from "./apiClient";
+import { HealthProfileDTO, UpdateHealthProfileDTO } from "../types/types"; // Import từ types.ts
 
-export interface HealthProfile {
-  id: string;
-  userId: string;
-  age: number;
-  gender: string;
-  height: number;
-  weight: number;
-}
-
-export const getAllHealthProfiles = async (): Promise<HealthProfile[]> => {
+export const getAllHealthProfiles = async (): Promise<HealthProfileDTO[]> => {
   try {
-    return [
-      { id: "1", userId: "user1", age: 30, gender: "Male", height: 175, weight: 70 },
-      { id: "2", userId: "user2", age: 25, gender: "Female", height: 165, weight: 55 },
-    ];
+    const response = await apiClient.get("/HealthProfile/all-health-profiles");
+    return response.data;
   } catch (error) {
     throw new Error("Failed to fetch health profiles");
   }
 };
 
-export const getHealthProfileById = async (id: string): Promise<HealthProfile> => {
+export const getHealthProfileById = async (id: number): Promise<HealthProfileDTO> => { // id: string -> number
   try {
-    return { id, userId: "mock-user", age: 30, gender: "Male", height: 175, weight: 70 };
+    const response = await apiClient.get(`/HealthProfile/health-profile-by-id/${id}`);
+    return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch health profile with id ${id}`);
   }
 };
 
-export const createHealthProfile = async (healthProfile: HealthProfile): Promise<HealthProfile> => {
+export const createHealthProfile = async (healthProfile: HealthProfileDTO): Promise<HealthProfileDTO> => { // Sử dụng HealthProfileDTO
   try {
-    return { ...healthProfile, id: "new-id" };
+    const response = await apiClient.post("/HealthProfile/health-profile-creation", healthProfile);
+    return response.data;
   } catch (error) {
     throw new Error("Failed to create health profile");
   }
 };
 
-export const updateHealthProfile = async (id: string, healthProfile: HealthProfile): Promise<HealthProfile> => {
+export const updateHealthProfile = async (id: number, healthProfile: UpdateHealthProfileDTO): Promise<HealthProfileDTO> => { // id: string -> number, dùng UpdateHealthProfileDTO
   try {
-    return { ...healthProfile, id };
+    const response = await apiClient.put(`/HealthProfile/health-profile-updation/${id}`, healthProfile);
+    return response.data;
   } catch (error) {
     throw new Error(`Failed to update health profile with id ${id}`);
   }
 };
 
-export const deleteHealthProfile = async (id: string): Promise<void> => {
+export const deleteHealthProfile = async (id: number): Promise<void> => { // id: string -> number
   try {
-    console.log(`Deleted health profile with id ${id}`);
+    await apiClient.delete(`/HealthProfile/health-profile-deletion/${id}`);
   } catch (error) {
     throw new Error(`Failed to delete health profile with id ${id}`);
   }
 };
 
-export const searchHealthProfile = async (query: string): Promise<HealthProfile[]> => {
+export const searchHealthProfile = async (query: string): Promise<HealthProfileDTO[]> => {
   try {
-    return [
-      { id: "1", userId: "user1", age: 30, gender: "Male", height: 175, weight: 70 },
-    ].filter((p) => p.userId.toLowerCase().includes(query.toLowerCase()));
+    const response = await apiClient.get(`/HealthProfile/health-profile-search?name=${query}`);
+    return response.data;
   } catch (error) {
     throw new Error("Failed to search health profiles");
   }

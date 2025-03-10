@@ -27,6 +27,7 @@ const menuItems = [
   { text: "Quản lý người dùng", icon: <PeopleIcon />, path: "/nutriwise/users" },
   { text: "Kế hoạch dinh dưỡng", icon: <RestaurantIcon />, path: "/nutriwise/nutrition-plans" },
   { text: "Quản lý thực đơn", icon: <MenuBookIcon />, path: "/nutriwise/meals" },
+  { text: "Quản lý món ăn", icon: <MenuBookIcon />, path: "/nutriwise/recipes" },
   { text: "Báo cáo & Thống kê", icon: <AssessmentIcon />, path: "/nutriwise/reports" },
   { text: "Cài đặt hệ thống", icon: <SettingsIcon />, path: "/nutriwise/settings" },
 ]

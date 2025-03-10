@@ -1,142 +1,64 @@
-// import apiClient from "./apiClient";
-
-// export interface Recipe {
-//   id: string;
-//   title: string;
-//   description?: string;
-//   categoryId?: string;
-// }
-
-// export const getAllRecipes = async (): Promise<Recipe[]> => {
-//   try {
-//     const response = await apiClient.get("/Recipe/GetAllRecipes");
-//     return response.data;
-//   } catch (error) {
-//     throw new Error("Failed to fetch recipes");
-//   }
-// };
-
-// export const getRecipeById = async (id: string): Promise<Recipe> => {
-//   try {
-//     const response = await apiClient.get(`/Recipe/GetRecipeById/${id}`);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error(`Failed to fetch recipe with id ${id}`);
-//   }
-// };
-
-// export const createRecipe = async (recipe: Recipe): Promise<Recipe> => {
-//   try {
-//     const response = await apiClient.post("/Recipe/CreateRecipe", recipe);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error("Failed to create recipe");
-//   }
-// };
-
-// export const updateRecipe = async (id: string, recipe: Recipe): Promise<Recipe> => {
-//   try {
-//     const response = await apiClient.put(`/Recipe/UpdateRecipe/${id}`, recipe);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error(`Failed to update recipe with id ${id}`);
-//   }
-// };
-
-// export const deleteRecipe = async (id: string): Promise<void> => {
-//   try {
-//     await apiClient.delete(`/Recipe/DeleteRecipe/${id}`);
-//   } catch (error) {
-//     throw new Error(`Failed to delete recipe with id ${id}`);
-//   }
-// };
-
-// export const searchRecipe = async (query: string): Promise<Recipe[]> => {
-//   try {
-//     const response = await apiClient.get(`/Recipe/SearchRecipe?query=${query}`);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error("Failed to search recipes");
-//   }
-// };
-
-// export const getRecipesByCategory = async (categoryId: string): Promise<Recipe[]> => {
-//   try {
-//     const response = await apiClient.get(`/Recipe/GetRecipesByCategory/${categoryId}`);
-//     return response.data;
-//   } catch (error) {
-//     throw new Error(`Failed to fetch recipes for category ${categoryId}`);
-//   }
-// };
-
+// src/api/recipeApi.ts
 import apiClient from "./apiClient";
+import { RecipeDTO, UpdateRecipeDTO } from "../types/types"; // Import từ types.ts
 
-export interface Recipe {
-  id: string;
-  title: string;
-  description?: string;
-  categoryId?: string;
-}
-
-export const getAllRecipes = async (): Promise<Recipe[]> => {
+export const getAllRecipes = async (): Promise<RecipeDTO[]> => {
   try {
-    return [
-      { id: "1", title: "Healthy Salad", description: "A fresh and healthy salad recipe", categoryId: "1" },
-      { id: "2", title: "Grilled Chicken", description: "A protein-packed grilled chicken recipe", categoryId: "2" },
-      { id: "3", title: "Veggie Soup", description: "A warm and comforting veggie soup", categoryId: "3" },
-    ];
+    const response = await apiClient.get("/Recipe/all-recipes");
+    return response.data;
   } catch (error) {
     throw new Error("Failed to fetch recipes");
   }
 };
 
-export const getRecipeById = async (id: string): Promise<Recipe> => {
+export const getRecipeById = async (id: number): Promise<RecipeDTO> => { // id: string -> number
   try {
-    return { id, title: `Recipe ${id}`, description: `Mock recipe ${id}`, categoryId: "1" };
+    const response = await apiClient.get(`/Recipe/recipe-by-id/${id}`);
+    return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch recipe with id ${id}`);
   }
 };
 
-export const createRecipe = async (recipe: Recipe): Promise<Recipe> => {
+export const createRecipe = async (recipe: RecipeDTO): Promise<RecipeDTO> => { // Sử dụng RecipeDTO
   try {
-    return { ...recipe, id: "new-id" };
+    const response = await apiClient.post("/Recipe/recipe-creation", recipe);
+    return response.data;
   } catch (error) {
     throw new Error("Failed to create recipe");
   }
 };
 
-export const updateRecipe = async (id: string, recipe: Recipe): Promise<Recipe> => {
+export const updateRecipe = async (id: number, recipe: UpdateRecipeDTO): Promise<RecipeDTO> => { // id: string -> number, dùng UpdateRecipeDTO
   try {
-    return { ...recipe, id };
+    const response = await apiClient.put(`/Recipe/recipe-updation/${id}`, recipe);
+    return response.data;
   } catch (error) {
     throw new Error(`Failed to update recipe with id ${id}`);
   }
 };
 
-export const deleteRecipe = async (id: string): Promise<void> => {
+export const deleteRecipe = async (id: number): Promise<void> => { // id: string -> number
   try {
-    console.log(`Deleted recipe with id ${id}`);
+    await apiClient.delete(`/Recipe/recipe-deletion/${id}`);
   } catch (error) {
     throw new Error(`Failed to delete recipe with id ${id}`);
   }
 };
 
-export const searchRecipe = async (query: string): Promise<Recipe[]> => {
+export const searchRecipe = async (query: string): Promise<RecipeDTO[]> => {
   try {
-    return [
-      { id: "1", title: "Healthy Salad", description: "A fresh and healthy salad recipe", categoryId: "1" },
-    ].filter((r) => r.title.toLowerCase().includes(query.toLowerCase()));
+    const response = await apiClient.get(`/Recipe/recipe-search?name=${query}`);
+    return response.data;
   } catch (error) {
     throw new Error("Failed to search recipes");
   }
 };
 
-export const getRecipesByCategory = async (categoryId: string): Promise<Recipe[]> => {
+export const getRecipesByCategory = async (categoryId: number): Promise<RecipeDTO[]> => { // categoryId: string -> number
   try {
-    return [
-      { id: "1", title: "Healthy Salad", description: "A fresh and healthy salad recipe", categoryId },
-    ];
+    const response = await apiClient.get(`/Recipe/recipe-by-category-id/${categoryId}`);
+    return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch recipes for category ${categoryId}`);
   }

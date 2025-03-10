@@ -1,69 +1,64 @@
+// src/api/mealApi.ts
 import apiClient from "./apiClient";
+import { MealDTO, UpdateMealDTO } from "../types/types"; // Import từ types.ts
 
-export interface Meal {
-  id: string;
-  healthProfileId: string;
-  recipeId: string;
-  date: string;
-}
-
-export const getAllMeals = async (): Promise<Meal[]> => {
+export const getAllMeals = async (): Promise<MealDTO[]> => {
   try {
-    const response = await apiClient.get("/Meal/GetAllMeals");
+    const response = await apiClient.get("/Meal/all-meals");
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch meals");
   }
 };
 
-export const getMealById = async (id: string): Promise<Meal> => {
+export const getMealById = async (id: number): Promise<MealDTO> => { // id: string -> number
   try {
-    const response = await apiClient.get(`/Meal/GetMealById/${id}`);
+    const response = await apiClient.get(`/Meal/meal-by-id/${id}`);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch meal with id ${id}`);
   }
 };
 
-export const getMealsByHealthProfile = async (healthProfileId: string): Promise<Meal[]> => {
+export const getMealsByHealthProfile = async (healthProfileId: number): Promise<MealDTO[]> => { // healthProfileId: string -> number
   try {
-    const response = await apiClient.get(`/Meal/GetMealsByHealthProfile/${healthProfileId}`);
+    const response = await apiClient.get(`/Meal/meal-by-health-profile-id/${healthProfileId}`);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch meals for health profile ${healthProfileId}`);
   }
 };
 
-export const getMealsByDateRange = async (startDate: string, endDate: string): Promise<Meal[]> => {
+export const getMealsByDateRange = async (startDate: string, endDate: string): Promise<MealDTO[]> => {
   try {
-    const response = await apiClient.get(`/Meal/GetMealsByDateRange?startDate=${startDate}&endDate=${endDate}`);
+    const response = await apiClient.get(`/Meal/meal-by-date-range?startDate=${startDate}&endDate=${endDate}`);
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch meals by date range");
   }
 };
 
-export const createMeal = async (meal: Meal): Promise<Meal> => {
+export const createMeal = async (meal: MealDTO): Promise<MealDTO> => { // Sử dụng MealDTO
   try {
-    const response = await apiClient.post("/Meal/CreateMeal", meal);
+    const response = await apiClient.post("/Meal/meal-creation", meal);
     return response.data;
   } catch (error) {
     throw new Error("Failed to create meal");
   }
 };
 
-export const updateMeal = async (id: string, meal: Meal): Promise<Meal> => {
+export const updateMeal = async (id: number, meal: UpdateMealDTO): Promise<MealDTO> => { // id: string -> number, dùng UpdateMealDTO
   try {
-    const response = await apiClient.put(`/Meal/UpdateMeal/${id}`, meal);
+    const response = await apiClient.put(`/Meal/meal-updation/${id}`, meal);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to update meal with id ${id}`);
   }
 };
 
-export const deleteMeal = async (id: string): Promise<void> => {
+export const deleteMeal = async (id: number): Promise<void> => { // id: string -> number
   try {
-    await apiClient.delete(`/Meal/DeleteMeal/${id}`);
+    await apiClient.delete(`/Meal/meal-deletion/${id}`);
   } catch (error) {
     throw new Error(`Failed to delete meal with id ${id}`);
   }

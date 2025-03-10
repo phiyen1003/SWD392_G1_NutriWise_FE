@@ -42,3 +42,11 @@ export const completeProfile = async (data: CompleteProfileRequest): Promise<Com
     throw new Error("Failed to complete profile");
   }
 };
+
+export const signOut = async (): Promise<void> => {
+  try {
+    await apiClient.post("/Account/sign-out");
+  } catch (error) {
+    throw new Error("Failed to sign out");
+  }
+};

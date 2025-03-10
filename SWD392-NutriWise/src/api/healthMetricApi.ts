@@ -1,69 +1,66 @@
+// src/api/healthMetricApi.ts
 import apiClient from "./apiClient";
+import { HealthMetricDTO, UpdateHealthMetricDTO } from "../types/types"; // Import từ types.ts
 
-export interface HealthMetric {
-  id: string;
-  healthProfileId: string;
-  metricType: string;
-  value: number;
-  date: string;
-}
-
-export const getAllHealthMetrics = async (): Promise<HealthMetric[]> => {
+export const getAllHealthMetrics = async (): Promise<HealthMetricDTO[]> => {
   try {
-    const response = await apiClient.get("/HealthMetric/GetAllHealthMetrics");
+    const response = await apiClient.get("/HealthMetric/all-health-metrics");
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch health metrics");
   }
 };
 
-export const getByHealthProfileId = async (healthProfileId: string): Promise<HealthMetric[]> => {
+export const getByHealthProfileId = async (healthProfileId: number): Promise<HealthMetricDTO[]> => { // healthProfileId: string -> number
   try {
-    const response = await apiClient.get(`/HealthMetric/GetByHealthProfileId/${healthProfileId}`);
+    const response = await apiClient.get(`/HealthMetric/health-metric-by-health-profile-id/${healthProfileId}`);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch health metrics for health profile ${healthProfileId}`);
   }
 };
 
-export const getHealthMetricById = async (id: string): Promise<HealthMetric> => {
+export const getHealthMetricById = async (id: number): Promise<HealthMetricDTO> => { // id: string -> number
   try {
-    const response = await apiClient.get(`/HealthMetric/GetHealthMetricById/${id}`);
+    const response = await apiClient.get(`/HealthMetric/health-metric-by-id/${id}`);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch health metric with id ${id}`);
   }
 };
 
-export const createHealthMetric = async (healthMetric: HealthMetric): Promise<HealthMetric> => {
+export const createHealthMetric = async (healthMetric: HealthMetricDTO): Promise<HealthMetricDTO> => { // Sử dụng HealthMetricDTO
   try {
-    const response = await apiClient.post("/HealthMetric/CreateHealthMetric", healthMetric);
+    const response = await apiClient.post("/HealthMetric/health-metric-creation", healthMetric);
     return response.data;
   } catch (error) {
     throw new Error("Failed to create health metric");
   }
 };
 
-export const updateHealthMetric = async (id: string, healthMetric: HealthMetric): Promise<HealthMetric> => {
+export const updateHealthMetric = async (id: number, healthMetric: UpdateHealthMetricDTO): Promise<HealthMetricDTO> => { // id: string -> number, dùng UpdateHealthMetricDTO
   try {
-    const response = await apiClient.put(`/HealthMetric/UpdateHealthMetric/${id}`, healthMetric);
+    const response = await apiClient.put(`/HealthMetric/health-metric-updation/${id}`, healthMetric);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to update health metric with id ${id}`);
   }
 };
 
-export const deleteHealthMetric = async (id: string): Promise<void> => {
+export const deleteHealthMetric = async (id: number): Promise<void> => { // id: string -> number, sửa endpoint
   try {
-    await apiClient.delete(`/api/HealthMetric/DeleteHealthMetric/${id}`);
+    const response = await apiClient.delete(`/HealthMetric/health-metric-deletion/${id}`); // Xóa "/api" thừa
+    return response.data;
   } catch (error) {
     throw new Error(`Failed to delete health metric with id ${id}`);
   }
 };
 
-export const getByDateRange = async (healthProfileId: string, startDate: string, endDate: string): Promise<HealthMetric[]> => {
+export const getByDateRange = async (healthProfileId: number, startDate: string, endDate: string): Promise<HealthMetricDTO[]> => { // healthProfileId: string -> number
   try {
-    const response = await apiClient.get(`/HealthMetric/GetByDateRange/${healthProfileId}?startDate=${startDate}&endDate=${endDate}`);
+    const response = await apiClient.get(
+      `/HealthMetric/health-metric-by-health-profile-id-date-range/${healthProfileId}?startDate=${startDate}&endDate=${endDate}`
+    );
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch health metrics by date range");

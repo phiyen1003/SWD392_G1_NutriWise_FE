@@ -7,6 +7,7 @@ import NutritionPlansPage from "../pages/Admin/NutritionPlansPage";
 import MealsPage from "../pages/Admin/MealsPage";
 import ReportsPage from "../pages/Admin/ReportsPage";
 import SettingsPage from "../pages/Admin/SettingsPage";
+import RecipePage from "../pages/Admin/RecipesPage";
 
 // Component dummy để xử lý redirect đến Google Login
 const RedirectToGoogleLogin: React.FC = () => {
@@ -29,6 +30,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/nutriwise/users" element={<UsersPage />} />
         <Route path="/nutriwise/nutrition-plans" element={<NutritionPlansPage />} />
         <Route path="/nutriwise/meals" element={<MealsPage />} />
+        <Route path="/nutriwise/recipes" element={<RecipePage />} />
         <Route path="/nutriwise/reports" element={<ReportsPage />} />
         <Route path="/nutriwise/settings" element={<SettingsPage />} />
         {/* Route dummy để xử lý redirect đến Google Login */}

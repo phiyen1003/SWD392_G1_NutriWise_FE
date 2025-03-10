@@ -1,64 +1,58 @@
+// src/api/chatApi.ts
 import apiClient from "./apiClient";
+import { 
+  ChatConversationDTO, 
+  ChatMessageDTO, 
+  CreateConversationDTO, 
+  CreateChatMessageDTO, 
+  MenuSuggestionDTO 
+} from "../types/types"; // Import từ types.ts
 
-export interface Conversation {
-  id: string;
-  userId: string;
-  messages: Message[];
-}
-
-export interface Message {
-  id: string;
-  conversationId: string;
-  content: string;
-  sender: string;
-  timestamp: string;
-}
-
-export const getConversationsByUserId = async (userId: string): Promise<Conversation[]> => {
+export const getConversationsByUserId = async (userId: number): Promise<ChatConversationDTO[]> => { // userId: string -> number
   try {
-    const response = await apiClient.get(`/Chat/conversations/${userId}`);
+    const response = await apiClient.get(`/Chat/userconversations/${userId}`);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch conversations for user ${userId}`);
   }
 };
 
-export const getConversationById = async (conversationId: string): Promise<Conversation> => {
+export const getConversationById = async (conversationId: number): Promise<ChatConversationDTO> => { // conversationId: string -> number
   try {
-    const response = await apiClient.get(`/Chat/conversation/${conversationId}`);
+    const response = await apiClient.get(`/Chat/conversation-by-id/${conversationId}`);
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch conversation with id ${conversationId}`);
   }
 };
 
-export const deleteConversation = async (conversationId: string): Promise<void> => {
+export const deleteConversation = async (conversationId: number): Promise<void> => { // conversationId: string -> number
   try {
-    await apiClient.delete(`/Chat/conversation/${conversationId}`);
+    await apiClient.delete(`/Chat/conversation-delete/${conversationId}`);
   } catch (error) {
     throw new Error(`Failed to delete conversation with id ${conversationId}`);
   }
 };
 
-export const createConversation = async (userId: string): Promise<Conversation> => {
+export const createConversation = async (data: CreateConversationDTO): Promise<ChatConversationDTO> => { // Sử dụng CreateConversationDTO
   try {
-    const response = await apiClient.post("/Chat/conversation", { userId });
+    const response = await apiClient.post("/Chat/conversation-creation", data); // Thêm prefix /Chat/
     return response.data;
   } catch (error) {
     throw new Error("Failed to create conversation");
   }
 };
 
-export const sendMessage = async (conversationId: string, content: string): Promise<Message> => {
+export const sendMessage = async (message: CreateChatMessageDTO): Promise<ChatMessageDTO> => { // Sử dụng CreateChatMessageDTO
   try {
-    const response = await apiClient.post("/Chat/message", { conversationId, content });
+    const response = await apiClient.post("/Chat/message-send", message);
     return response.data;
   } catch (error) {
     throw new Error("Failed to send message");
   }
 };
 
-export const getMenuSuggestion = async (conversationId: string): Promise<any> => {
+export const getMenuSuggestion = async (conversationId: number): Promise<MenuSuggestionDTO> => { // conversationId: string -> number, dùng MenuSuggestionDTO
   try {
     const response = await apiClient.post("/Chat/menu-suggestion", { conversationId });
     return response.data;
