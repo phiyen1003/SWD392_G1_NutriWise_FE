@@ -5,14 +5,13 @@ import {
   LinkedIn,
   Instagram,
   Copyright,
-  Dashboard as DashboardIcon,
   MenuBook as MenuBookIcon,
   Assessment as AssessmentIcon,
   People as PeopleIcon,
   Favorite as FavoriteIcon,
-  LocalDining as LocalDiningIcon, // Icon cho Ingredients
-  Healing as HealingIcon, // Icon cho Health Profile
-  RestaurantMenu as RestaurantMenuIcon, // Icon cho Recipes
+  LocalDining as LocalDiningIcon,
+  Healing as HealingIcon,
+  RestaurantMenu as RestaurantMenuIcon,
 } from "@mui/icons-material";
 import {
   Paper,
@@ -21,7 +20,6 @@ import {
   CardActions,
   List,
   ListItem,
-  ListItemIcon,
   ListItemText,
   IconButton,
   Link,
@@ -30,34 +28,95 @@ import AIChat from "../../components/Home/AIChat";
 import { useState, useEffect } from "react";
 import AuthModal from "../../components/Home/AuthModal";
 import { motion } from "framer-motion";
-import { CompleteProfileRequest, CompleteProfileResponse, completeProfile } from "../../api/accountApi";
-import { getAllRecipes, Recipe } from "../../api/recipeApi";
-import { getAllIngredients, Ingredient } from "../../api/ingredientApi";
-import { getAllHealthProfiles, HealthProfile } from "../../api/healthProfileApi";
-import { addFavorite } from "../../api/favoriteRecipeApi";
-
-// Định nghĩa interface cho user
+import { CompleteProfileRequest, googleLogin, googleCallback, signOut, completeProfile } from "../../api/accountApi";
+import { getAllRecipes,  } from "../../api/recipeApi";
+import { getAllIngredients,  } from "../../api/ingredientApi";
+import { getAllHealthProfiles,  } from "../../api/healthProfileApi";
+import { addFavorite,  } from "../../api/favoriteRecipeApi";
+import { useLocation, useNavigate } from "react-router-dom";
+import { GoogleCallbackResponse } from "../../api/accountApi";
+import { RecipeDTO, IngredientDTO, HealthProfileDTO, CreateFavoriteRecipeDTO} from "../../types/types";
 interface AppUser {
   email: string;
   token?: string;
+  userId?: string;
+}
+
+interface JwtPayload {
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": string;
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": string;
+  exp: number;
 }
 
 const HomePage = () => {
   const [showAIChat, setShowAIChat] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null);
+  const [recipes, setRecipes] = useState<RecipeDTO[]>([]);
+  const [ingredients, setIngredients] = useState<IngredientDTO[]>([]);
+  const [healthProfile, setHealthProfile] = useState<HealthProfileDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [openAuthModal, setOpenAuthModal] = useState(false);
+  const [tempUserId, setTempUserId] = useState<string>("");
+  const [tempEmail, setTempEmail] = useState<string>("");
 
-  // Kiểm tra user từ localStorage và fetch dữ liệu
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Xử lý callback từ Google OAuth
+  useEffect(() => {
+    const handleCallback = async () => {
+      if (location.pathname === "/auth/callback") {
+        try {
+          const data: GoogleCallbackResponse = await googleCallback();
+          const { token, email, isRegistered } = data;
+
+          if (token && email) {
+            const decoded: JwtPayload = JSON.parse(atob(token.split('.')[1]));
+            const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+
+            if (!isRegistered) {
+              localStorage.setItem("tempToken", token);
+              localStorage.setItem("tempEmail", email);
+              localStorage.setItem("tempUserId", userId);
+              setTempUserId(userId);
+              setTempEmail(email);
+              setOpenAuthModal(true);
+              navigate("/", { replace: true });
+            } else {
+              // Đăng nhập thành công, lưu thông tin và redirect về trang chủ
+              localStorage.setItem("token", token);
+              localStorage.setItem("email", email);
+              localStorage.setItem("userId", userId);
+              setUser({ email, token, userId });
+              setShowAIChat(true); // Bật AIChat
+              navigate("/", { replace: true }); // Đảm bảo redirect
+              // Force re-render to update UI
+              setTimeout(() => {
+                window.location.reload(); // Tạm thời reload để đảm bảo UI cập nhật
+              }, 100);
+            }
+          } else {
+            setError("No token or email in callback response.");
+          }
+        } catch (err) {
+          setError("Failed to process Google callback: " + (err instanceof Error ? err.message : "Unknown error"));
+          console.error("Callback error details:", err);
+        }
+      }
+    };
+
+    handleCallback();
+  }, [location, navigate]);
+
+  // Kiểm tra user đã đăng nhập chưa
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedEmail = localStorage.getItem("email");
-    if (storedToken && storedEmail) {
-      setUser({ email: storedEmail, token: storedToken });
+    const storedUserId = localStorage.getItem("userId");
+    if (storedToken && storedEmail && storedUserId) {
+      setUser({ email: storedEmail, token: storedToken, userId: storedUserId });
       setShowAIChat(true);
     }
     fetchData();
@@ -74,41 +133,30 @@ const HomePage = () => {
       ]);
       setRecipes(recipesData);
       setIngredients(ingredientsData);
-      setHealthProfile(healthProfiles[0] || null); // Lấy profile đầu tiên
+      setHealthProfile(healthProfiles[0] || null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error occurred while fetching data");
-      setRecipes([]);
-      setIngredients([]);
-      setHealthProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("email");
-    setUser(null);
-    setShowAIChat(false);
-    alert("Đăng xuất thành công!");
+  const handleGoogleLogin = async () => {
+    try {
+      await googleLogin();
+    } catch (err) {
+      setError("Failed to initiate Google login: " + (err instanceof Error ? err.message : "Unknown error"));
+    }
   };
 
-  const handleLoginSuccess = (token: string, email: string) => {
+  const handleLogout = async () => {
     try {
-      if (token && email) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("email", email);
-        setUser({ email, token });
-        setShowAIChat(true);
-        alert("Đăng nhập thành công!");
-        setShowLogin(false);
-        fetchData();
-      } else {
-        throw new Error("Login response missing token or email");
-      }
+      await signOut();
+      setUser(null);
+      setShowAIChat(false);
+      alert("Đăng xuất thành công!");
     } catch (err) {
-      setError("Login failed: " + (err instanceof Error ? err.message : "Unknown error"));
-      console.error(err);
+      setError("Failed to sign out: " + (err instanceof Error ? err.message : "Unknown error"));
     }
   };
 
@@ -118,18 +166,34 @@ const HomePage = () => {
         throw new Error("Missing required fields in profile data");
       }
       const response = await completeProfile(data);
-      alert(response.message);
-      setShowLogin(false);
+      alert(response.message || "Profile completed successfully!");
+      setShowAIChat(true);
+      localStorage.setItem("token", localStorage.getItem("tempToken") || "");
+      localStorage.setItem("email", data.email);
+      localStorage.setItem("userId", data.userId);
+      localStorage.removeItem("tempToken");
+      localStorage.removeItem("tempEmail");
+      localStorage.removeItem("tempUserId");
+      setUser({ email: data.email, token: localStorage.getItem("tempToken") || "", userId: data.userId });
+      setOpenAuthModal(false);
+      navigate("/", { replace: true }); // Redirect về trang chủ sau khi hoàn tất profile
+      setTimeout(() => {
+        window.location.reload(); // Tạm thời reload để đảm bảo UI cập nhật
+      }, 100);
     } catch (err) {
       setError("Failed to complete profile: " + (err instanceof Error ? err.message : "Unknown error"));
       console.error(err);
     }
   };
 
-  const handleAddFavorite = async (recipeId: string) => {
+  const handleAddFavorite = async (recipeId: number) => {
     try {
-      if (!user?.token) throw new Error("Please login to add favorites");
-      await addFavorite({ id: "", userId: user.email, recipeId, createdAt: new Date().toISOString() });
+      if (!user?.token || !user.userId) throw new Error("Please login to add favorites");
+      const favoriteData: CreateFavoriteRecipeDTO = {
+        userId: parseInt(user.userId),
+        recipeId: recipeId,
+      };
+      await addFavorite(favoriteData);
       alert(`Added recipe ${recipeId} to favorites!`);
     } catch (err) {
       alert("Failed to add favorite: " + (err instanceof Error ? err.message : "Unknown error"));
@@ -224,7 +288,7 @@ const HomePage = () => {
               </Button>
             </Box>
           ) : (
-            <Button variant="contained" color="info" onClick={() => setShowLogin(true)} sx={{ fontWeight: "bold" }}>
+            <Button variant="contained" color="info" onClick={handleGoogleLogin} sx={{ fontWeight: "bold" }}>
               Đăng nhập
             </Button>
           )}
@@ -232,10 +296,12 @@ const HomePage = () => {
       </AppBar>
 
       <AuthModal
-        open={showLogin}
-        onClose={() => setShowLogin(false)}
-        onLoginSuccess={handleLoginSuccess}
+        open={openAuthModal}
+        onClose={() => setOpenAuthModal(false)}
         onCompleteProfile={handleCompleteProfile}
+        isNewUser={true}
+        userId={tempUserId}
+        email={tempEmail}
       />
 
       {error && (
@@ -301,7 +367,7 @@ const HomePage = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 1, ease: "easeOut" }}
           >
-            <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={() => setShowLogin(true)}>
+            <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={handleGoogleLogin}>
               Bắt đầu ngay
             </Button>
           </motion.div>
@@ -368,12 +434,12 @@ const HomePage = () => {
                     "&:hover": {
                       transform: "scale(1.05)",
                     },
-                    bgcolor: "#fff3e0", // Màu nền nhẹ cho card
+                    bgcolor: "#fff3e0",
                   }}
                 >
                   <CardContent sx={{ flexGrow: 1, p: 3 }}>
                     <Typography variant="h6" sx={{ mb: 2 }}>
-                      {ingredient.name}
+                      {ingredient.name || `Ingredient ${index + 1}`}
                     </Typography>
                     <Typography color="text.secondary" sx={{ mb: 2 }}>
                       {ingredient.description || "No description available"}
@@ -414,12 +480,12 @@ const HomePage = () => {
                     "&:hover": {
                       transform: "scale(1.05)",
                     },
-                    bgcolor: "#e0f7fa", // Màu nền nhẹ cho card
+                    bgcolor: "#e0f7fa",
                   }}
                 >
                   <CardContent sx={{ flexGrow: 1, p: 3 }}>
                     <Typography variant="h6" sx={{ mb: 2 }}>
-                      {recipe.title || `Recipe ${index + 1}`}
+                      {recipe.name || `Recipe ${index + 1}`}
                     </Typography>
                     <Typography color="text.secondary" sx={{ mb: 2 }}>
                       {recipe.description || "No description available"}
@@ -430,7 +496,7 @@ const HomePage = () => {
                       variant="contained"
                       color="primary"
                       startIcon={<FavoriteIcon />}
-                      onClick={() => handleAddFavorite(recipe.id)}
+                      onClick={() => handleAddFavorite(recipe.recipeId)}
                       disabled={!user}
                       fullWidth
                     >
@@ -466,7 +532,7 @@ const HomePage = () => {
               boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
               maxWidth: 600,
               mx: "auto",
-              bgcolor: "#eceff1", // Màu nền nhẹ cho card
+              bgcolor: "#eceff1",
             }}
           >
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -474,19 +540,19 @@ const HomePage = () => {
             </Typography>
             <List>
               <ListItem>
-                <ListItemText primary={`User ID: ${healthProfile.userId}`} />
+                <ListItemText primary={`Health Profile ID: ${healthProfile.healthProfileId}`} />
               </ListItem>
               <ListItem>
-                <ListItemText primary={`Age: ${healthProfile.age}`} />
+                <ListItemText primary={`Full Name: ${healthProfile.fullName || "N/A"}`} />
               </ListItem>
               <ListItem>
-                <ListItemText primary={`Gender: ${healthProfile.gender}`} />
+                <ListItemText primary={`Gender: ${healthProfile.gender || "N/A"}`} />
               </ListItem>
               <ListItem>
-                <ListItemText primary={`Height: ${healthProfile.height} cm`} />
+                <ListItemText primary={`Height: ${healthProfile.height || "N/A"} cm`} />
               </ListItem>
               <ListItem>
-                <ListItemText primary={`Weight: ${healthProfile.weight} kg`} />
+                <ListItemText primary={`Weight: ${healthProfile.weight || "N/A"} kg`} />
               </ListItem>
             </List>
           </Card>

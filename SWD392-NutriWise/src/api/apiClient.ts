@@ -1,17 +1,16 @@
-// src/api/apiClient.ts
-import axios from 'axios';
+import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: 'https://nutriwise.azurewebsites.net/api', // Thay bằng URL thực tế của backend
+  baseURL: "https://nutriwise.azurewebsites.net/api",
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
-// Thêm interceptor để xử lý token (nếu cần)
+// Thêm interceptor để xử lý token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token'); // Lấy token từ localStorage (nếu có)
+    const token = localStorage.getItem("token") || localStorage.getItem("tempToken"); // Sử dụng tempToken nếu token chưa có
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

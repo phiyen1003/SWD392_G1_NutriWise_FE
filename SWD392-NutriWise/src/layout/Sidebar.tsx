@@ -1,4 +1,4 @@
-import type React from "react"
+import type React from "react";
 import {
   Drawer,
   Box,
@@ -9,8 +9,8 @@ import {
   ListItemText,
   Typography,
   Avatar,
-} from "@mui/material"
-import { useLocation, useNavigate } from "react-router-dom"
+} from "@mui/material";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Dashboard as DashboardIcon,
   People as PeopleIcon,
@@ -18,23 +18,45 @@ import {
   MenuBook as MenuBookIcon,
   Assessment as AssessmentIcon,
   Settings as SettingsIcon,
-} from "@mui/icons-material"
+  LocalDining as LocalDiningIcon,
+  Category as CategoryIcon,
+  Chat as ChatIcon,
+  Favorite as FavoriteIcon,
+  FitnessCenter as FitnessCenterIcon,
+  Image as ImageIcon,
+  History as HistoryIcon,
+  Search as SearchIcon,
+} from "@mui/icons-material";
 
-const drawerWidth = 240
+const drawerWidth = 240;
 
 const menuItems = [
   { text: "Bảng điều khiển", icon: <DashboardIcon />, path: "/nutriwise/dashboard" },
   { text: "Quản lý người dùng", icon: <PeopleIcon />, path: "/nutriwise/users" },
-  { text: "Kế hoạch dinh dưỡng", icon: <RestaurantIcon />, path: "/nutriwise/nutrition-plans" },
-  { text: "Quản lý thực đơn", icon: <MenuBookIcon />, path: "/nutriwise/meals" },
-  { text: "Quản lý món ăn", icon: <MenuBookIcon />, path: "/nutriwise/recipes" },
+  { text: "Quản lý chất gây dị ứng", icon: <LocalDiningIcon />, path: "/nutriwise/allergens" },
+  { text: "Quản lý danh mục", icon: <CategoryIcon />, path: "/nutriwise/categories" },
+  { text: "Quản lý trò chuyện", icon: <ChatIcon />, path: "/nutriwise/chats" },
+  { text: "Quản lý công thức yêu thích", icon: <FavoriteIcon />, path: "/nutriwise/favorite-recipes" },
+  { text: "Quản lý mục tiêu sức khỏe", icon: <FitnessCenterIcon />, path: "/nutriwise/health-goals" },
+  { text: "Quản lý chỉ số sức khỏe", icon: <FitnessCenterIcon />, path: "/nutriwise/health-metrics" },
+  { text: "Quản lý hồ sơ sức khỏe", icon: <PeopleIcon />, path: "/nutriwise/health-profiles" },
+  { text: "Quản lý nguyên liệu", icon: <LocalDiningIcon />, path: "/nutriwise/ingredients" },
+  { text: "Quản lý nguyên liệu trong công thức", icon: <LocalDiningIcon />, path: "/nutriwise/ingredient-in-recipes" },
+  { text: "Quản lý bữa ăn", icon: <RestaurantIcon />, path: "/nutriwise/meals" },
+  { text: "Quản lý lịch sử thực đơn", icon: <HistoryIcon />, path: "/nutriwise/menu-histories" },
+  { text: "Quản lý công thức trong thực đơn", icon: <MenuBookIcon />, path: "/nutriwise/menu-recipes" },
+  // { text: "Quản lý hình ảnh thực đơn", icon: <ImageIcon />, path: "/nutriwise/menu-recipe-images" },
+  { text: "Quản lý mục tiêu hồ sơ", icon: <FitnessCenterIcon />, path: "/nutriwise/profile-goals" },
+  { text: "Quản lý công thức", icon: <MenuBookIcon />, path: "/nutriwise/recipes" },
+  { text: "Quản lý mục tiêu sức khỏe công thức", icon: <FitnessCenterIcon />, path: "/nutriwise/recipe-health-goals" },
+  // { text: "Quản lý hình ảnh công thức", icon: <ImageIcon />, path: "/nutriwise/recipe-images" },
   { text: "Báo cáo & Thống kê", icon: <AssessmentIcon />, path: "/nutriwise/reports" },
   { text: "Cài đặt hệ thống", icon: <SettingsIcon />, path: "/nutriwise/settings" },
-]
+];
 
 const Sidebar: React.FC = () => {
-  const location = useLocation()
-  const navigate = useNavigate()
+  const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <Drawer
@@ -182,8 +204,7 @@ const Sidebar: React.FC = () => {
         </Typography>
       </Box>
     </Drawer>
-  )
-}
+  );
+};
 
-export default Sidebar
-
+export default Sidebar;
