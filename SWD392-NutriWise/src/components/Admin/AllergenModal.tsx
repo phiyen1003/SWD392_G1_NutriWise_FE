@@ -2,12 +2,17 @@ import { Modal, Box, TextField, Button } from "@mui/material";
 import { createAllergen, getAllergenById, updateAllergen } from "../../api/allergenApi";
 import { useEffect, useState } from "react";
 import { AllergenDTO } from "../../types/types";
+import Toast from "../ToastComponent";
 
 const AllergenModal = ({ open, allergen, handleClose, setAllergens, title, action }: {
     open: boolean, allergen: AllergenDTO,
     handleClose: () => void, setAllergens: React.Dispatch<React.SetStateAction<AllergenDTO[]>>,
     title: string, action: string
 }) => {
+
+    const [openToast, setOpenToast] = useState<boolean>(false);
+    const [statusCode, setStatusCode] = useState<number>(0);
+    const [information, setInformation] = useState<string>('');
     const [formData, setFormData] = useState<AllergenDTO | null>({
         allergenId: 0,
         name: "",
@@ -25,6 +30,16 @@ const AllergenModal = ({ open, allergen, handleClose, setAllergens, title, actio
         console.log(formData);
         setFormData({ ...formData, [e.target.name]: e.target.value })
     }
+
+    const handleCloseToast = () => {
+        setOpenToast(false);
+    };
+
+    const onToast = (status: number, open: boolean, info: string) => {
+        setStatusCode(status);
+        setOpenToast(open);
+        setInformation(info);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -49,15 +64,24 @@ const AllergenModal = ({ open, allergen, handleClose, setAllergens, title, actio
                         ? prev.map((a) => (a.allergenId === formData.allergenId ? response : a))
                         : [...prev, response]
                 );
+                onToast(200, true, `Thành phần dị ứng mới đã ${action === "update" ? "cập nhật" : "tạo"} thành công.`);
                 handleClose();
             }
+
         } catch (error) {
-            alert(error);
+            onToast(500, true, "Có lỗi xảy ra trong quá trình xử lý thành phần dị ứng.");
         }
     }
 
     return (
         <>
+            <Toast
+                onClose={handleCloseToast}
+                information={information}
+                open={openToast}
+                statusCode={statusCode}
+            />
+
             <Modal
                 open={open}
                 onClose={handleClose}
