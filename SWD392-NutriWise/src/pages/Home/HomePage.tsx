@@ -1,41 +1,33 @@
-import { Box, Container, Grid, Typography, Button, AppBar, Toolbar, Avatar } from "@mui/material";
-import {
-  Facebook,
-  Twitter,
-  LinkedIn,
-  Instagram,
-  Copyright,
-  MenuBook as MenuBookIcon,
-  Assessment as AssessmentIcon,
-  People as PeopleIcon,
-  Favorite as FavoriteIcon,
-  LocalDining as LocalDiningIcon,
-  Healing as HealingIcon,
-  RestaurantMenu as RestaurantMenuIcon,
-} from "@mui/icons-material";
-import {
-  Paper,
-  Card,
-  CardContent,
-  CardActions,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Link,
-} from "@mui/material";
-import AIChat from "../../components/Home/AIChat";
 import { useState, useEffect } from "react";
-import AuthModal from "../../components/Home/AuthModal";
-import { motion } from "framer-motion";
-import { CompleteProfileRequest, googleLogin, googleCallback, signOut, completeProfile } from "../../api/accountApi";
-import { getAllRecipes,  } from "../../api/recipeApi";
-import { getAllIngredients,  } from "../../api/ingredientApi";
-import { getAllHealthProfiles,  } from "../../api/healthProfileApi";
-import { addFavorite,  } from "../../api/favoriteRecipeApi";
 import { useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, Mail, Phone, MapPin, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
+import { Box } from "@mui/material";
+
+import AIChat from "../../components/Home/AIChat";
+import AuthModal from "../../components/Home/AuthModal";
+import Footer from "../../layout/Footer";
+import { 
+  CompleteProfileRequest, 
+  googleLogin, 
+  googleCallback, 
+  signOut, 
+  completeProfile 
+} from "../../api/accountApi";
+import { getAllRecipes } from "../../api/recipeApi";
+import { getAllIngredients } from "../../api/ingredientApi";
+import { getAllHealthProfiles } from "../../api/healthProfileApi";
+import { addFavorite } from "../../api/favoriteRecipeApi";
 import { GoogleCallbackResponse } from "../../api/accountApi";
-import { RecipeDTO, IngredientDTO, HealthProfileDTO, CreateFavoriteRecipeDTO} from "../../types/types";
+import { 
+  RecipeDTO, 
+  IngredientDTO, 
+  HealthProfileDTO, 
+  CreateFavoriteRecipeDTO 
+} from "../../types/types";
+import { JSX } from "react/jsx-runtime";
+
+// Define interfaces for TypeScript
 interface AppUser {
   email: string;
   token?: string;
@@ -49,22 +41,33 @@ interface JwtPayload {
   exp: number;
 }
 
-const HomePage = () => {
-  const [showAIChat, setShowAIChat] = useState(false);
+interface Feature {
+  title: string;
+  description: string;
+  icon: JSX.Element;
+}
+
+const HomePage: React.FC = () => {
+  const [showAIChat, setShowAIChat] = useState<boolean>(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [recipes, setRecipes] = useState<RecipeDTO[]>([]);
   const [ingredients, setIngredients] = useState<IngredientDTO[]>([]);
   const [healthProfile, setHealthProfile] = useState<HealthProfileDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [openAuthModal, setOpenAuthModal] = useState(false);
+  const [openAuthModal, setOpenAuthModal] = useState<boolean>(false);
   const [tempUserId, setTempUserId] = useState<string>("");
   const [tempEmail, setTempEmail] = useState<string>("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Xử lý callback từ Google OAuth
+  useEffect(() => {
+    const tempShowAIChat = localStorage.getItem("tempShowAIChat") === "true";
+    if (tempShowAIChat) setShowAIChat(true);
+  }, []);
+
   useEffect(() => {
     const handleCallback = async () => {
       if (location.pathname === "/auth/callback") {
@@ -85,32 +88,22 @@ const HomePage = () => {
               setOpenAuthModal(true);
               navigate("/", { replace: true });
             } else {
-              // Đăng nhập thành công, lưu thông tin và redirect về trang chủ
               localStorage.setItem("token", token);
               localStorage.setItem("email", email);
               localStorage.setItem("userId", userId);
               setUser({ email, token, userId });
-              setShowAIChat(true); // Bật AIChat
-              navigate("/", { replace: true }); // Đảm bảo redirect
-              // Force re-render to update UI
-              setTimeout(() => {
-                window.location.reload(); // Tạm thời reload để đảm bảo UI cập nhật
-              }, 100);
+              setShowAIChat(true);
+              navigate("/", { replace: true });
             }
-          } else {
-            setError("No token or email in callback response.");
           }
         } catch (err) {
-          setError("Failed to process Google callback: " + (err instanceof Error ? err.message : "Unknown error"));
-          console.error("Callback error details:", err);
+          setError("Failed to process Google callback.");
         }
       }
     };
-
     handleCallback();
   }, [location, navigate]);
 
-  // Kiểm tra user đã đăng nhập chưa
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedEmail = localStorage.getItem("email");
@@ -125,7 +118,6 @@ const HomePage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError(null);
       const [recipesData, ingredientsData, healthProfiles] = await Promise.all([
         getAllRecipes(),
         getAllIngredients(),
@@ -135,7 +127,7 @@ const HomePage = () => {
       setIngredients(ingredientsData);
       setHealthProfile(healthProfiles[0] || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error occurred while fetching data");
+      setError("Failed to fetch data.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +137,7 @@ const HomePage = () => {
     try {
       await googleLogin();
     } catch (err) {
-      setError("Failed to initiate Google login: " + (err instanceof Error ? err.message : "Unknown error"));
+      setError("Failed to initiate Google login.");
     }
   };
 
@@ -154,17 +146,15 @@ const HomePage = () => {
       await signOut();
       setUser(null);
       setShowAIChat(false);
-      alert("Đăng xuất thành công!");
+      localStorage.removeItem("tempShowAIChat");
+      alert("Logged out successfully!");
     } catch (err) {
-      setError("Failed to sign out: " + (err instanceof Error ? err.message : "Unknown error"));
+      setError("Failed to sign out.");
     }
   };
 
   const handleCompleteProfile = async (data: CompleteProfileRequest) => {
     try {
-      if (!data.userId || !data.fullName || !data.email) {
-        throw new Error("Missing required fields in profile data");
-      }
       const response = await completeProfile(data);
       alert(response.message || "Profile completed successfully!");
       setShowAIChat(true);
@@ -176,13 +166,9 @@ const HomePage = () => {
       localStorage.removeItem("tempUserId");
       setUser({ email: data.email, token: localStorage.getItem("tempToken") || "", userId: data.userId });
       setOpenAuthModal(false);
-      navigate("/", { replace: true }); // Redirect về trang chủ sau khi hoàn tất profile
-      setTimeout(() => {
-        window.location.reload(); // Tạm thời reload để đảm bảo UI cập nhật
-      }, 100);
+      navigate("/", { replace: true });
     } catch (err) {
-      setError("Failed to complete profile: " + (err instanceof Error ? err.message : "Unknown error"));
-      console.error(err);
+      setError("Failed to complete profile.");
     }
   };
 
@@ -196,104 +182,378 @@ const HomePage = () => {
       await addFavorite(favoriteData);
       alert(`Added recipe ${recipeId} to favorites!`);
     } catch (err) {
-      alert("Failed to add favorite: " + (err instanceof Error ? err.message : "Unknown error"));
+      alert("Failed to add favorite.");
     }
   };
 
-  const features = [
-    {
-      title: "Thực đơn đa dạng",
-      description: `Hơn ${recipes.length}+ công thức nấu ăn lành mạnh`,
-      icon: <MenuBookIcon sx={{ fontSize: 40 }} color="primary" />,
-    },
-    {
-      title: "Tư vấn dinh dưỡng",
-      description: "Đội ngũ chuyên gia dinh dưỡng hàng đầu",
-      icon: <PeopleIcon sx={{ fontSize: 40 }} color="secondary" />,
-    },
-    {
-      title: "Theo dõi sức khỏe",
-      description: `Theo dõi chỉ số (Cân nặng: ${healthProfile?.weight || "N/A"}kg)`,
-      icon: <AssessmentIcon sx={{ fontSize: 40 }} color="success" />,
-    },
-    {
-      title: "Cộng đồng",
-      description: "Kết nối với cộng đồng người yêu sức khỏe",
-      icon: <PeopleIcon sx={{ fontSize: 40 }} color="warning" />,
-    },
+  const handleToggleAIChatTemporarily = () => {
+    const shouldShow = !showAIChat;
+    setShowAIChat(shouldShow);
+    localStorage.setItem("tempShowAIChat", shouldShow.toString());
+  };
+
+  const features: Feature[] = [
+    { title: "Diverse Menu", description: `Over ${recipes.length}+ healthy recipes`, icon: <ChefHat style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Nutrition Advice", description: "Expert nutritionists at your service", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Health Tracking", description: `Track your stats (Weight: ${healthProfile?.weight || "N/A"}kg)`, icon: <HeartPulse style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Community", description: "Connect with a health-focused community", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
   ];
 
-  if (loading) return <Typography>Loading...</Typography>;
-  if (error) return (
-    <Box sx={{ position: "fixed", top: 80, width: "100%", zIndex: 1000, textAlign: "center" }}>
-      <Typography color="error" variant="body1" sx={{ bgcolor: "rgba(255, 0, 0, 0.1)", p: 2 }}>
-        {error}
-      </Typography>
-    </Box>
-  );
+  // Menu data with icons
+  const menuItems = [
+    { label: "Home", icon: <Home style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "Recipes", icon: <BookOpen style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "Ingredients", icon: <Sprout style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "About Us", icon: <Info style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+  ];
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", fontSize: "18px", color: "#333" }}>Loading...</div>;
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column" }}>
-      {user && showAIChat && (
-        <Box
-          sx={{
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "#F9FAFB" }}>
+      {/* AI Chat Floating Window */}
+      {showAIChat && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{
             position: "fixed",
-            bottom: 0,
-            right: 0,
-            width: 400,
-            height: 540,
-            borderRadius: 4,
-            bgcolor: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(8px)",
-            boxShadow: "0px 6px 16px rgba(0, 0, 0, 0.15)",
-            zIndex: 1000,
-            display: "flex",
-            flexDirection: "column",
+            bottom: "24px",
+            right: "24px",
+            width: "384px",
+            height: "600px",
+            backgroundColor: "#FFFFFF",
+            borderRadius: "16px",
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+            zIndex: 50,
             overflow: "hidden",
-            transition: "transform 0.3s ease-in-out, opacity 0.3s ease-in-out",
-            transform: showAIChat ? "scale(1)" : "scale(0.95)",
-            opacity: showAIChat ? 1 : 0,
+            border: "1px solid #DBEAFE"
           }}
         >
           <AIChat />
-        </Box>
+        </motion.div>
       )}
 
-      <AppBar
-        position="fixed"
-        color="transparent"
-        elevation={0}
-        sx={{ backdropFilter: "blur(10px)", backgroundColor: "rgba(255, 255, 255, 0.1)", px: 2 }}
-      >
-        <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          <Typography variant="h6" sx={{ fontWeight: "bold", color: "white" }}>
-            NutriWise
-          </Typography>
+      {/* Error Alert */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            position: "fixed",
+            top: "80px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 50,
+            display: "flex",
+            justifyContent: "center"
+          }}
+        >
+          <div style={{
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            color: "#DC2626",
+            padding: "16px 24px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+            maxWidth: "320px"
+          }}>
+            {error}
+          </div>
+        </motion.div>
+      )}
 
-          {user ? (
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              <Avatar sx={{ bgcolor: "primary.main", mr: 1 }}>
-                {user.email?.[0].toUpperCase()}
-              </Avatar>
-              <Typography variant="subtitle1" sx={{ mr: 2 }}>
-                {user.email}
-              </Typography>
-              <Button
-                color="error"
-                variant="outlined"
-                onClick={handleLogout}
-                sx={{ borderColor: "white", color: "white", "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" } }}
+      {/* Header/Navbar */}
+      <header style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "72px",
+        background: "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+        zIndex: 40,
+        borderBottom: "1px solid #DBEAFE",
+        fontFamily: "'Poppins', sans-serif",
+      }}>
+        <div style={{
+          margin: "0 auto",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 24px",
+          maxWidth: "1280px",
+          width: "100%"
+        }}>
+          {/* Logo */}
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <HeartPulse style={{ height: "28px", width: "28px", color: "#3B82F6" }} />
+            <span style={{ fontWeight: "700", fontSize: "26px", color: "#1F2937" }}>NutriWise</span>
+          </motion.div>
+
+          {/* Desktop Menu */}
+          <nav style={{ display: "flex", alignItems: "center", gap: "16px" }} className="hidden md:flex">
+            {menuItems.map((item) => (
+              <motion.button
+                key={item.label}
+                whileHover={{ scale: 1.05, backgroundColor: "#E0F2FE" }}
+                whileTap={{ scale: 0.95 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "#374151",
+                  fontWeight: "500",
+                  fontSize: "16px",
+                  letterSpacing: "0.5px",
+                  padding: "8px 16px",
+                  borderRadius: "20px",
+                  backgroundColor: "transparent",
+                  transition: "all 0.3s ease",
+                  cursor: "pointer",
+                }}
               >
-                Đăng xuất
-              </Button>
-            </Box>
-          ) : (
-            <Button variant="contained" color="info" onClick={handleGoogleLogin} sx={{ fontWeight: "bold" }}>
-              Đăng nhập
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
+                {item.icon}
+                {item.label}
+              </motion.button>
+            ))}
+          </nav>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {/* AI Chat Button on Desktop */}
+            <motion.button
+              whileHover={{ scale: 1.05, backgroundColor: showAIChat ? "#DC2626" : "#2563EB" }}
+              whileTap={{ scale: 0.95 }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 16px",
+                backgroundColor: showAIChat ? "#EF4444" : "#3B82F6",
+                color: "#FFFFFF",
+                borderRadius: "20px",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              }}
+              onClick={handleToggleAIChatTemporarily}
+              className="md:flex hidden"
+            >
+              <MessageSquare style={{ height: "16px", width: "16px" }} />
+              {showAIChat ? "Hide AI Chat" : "Show AI Chat"}
+            </motion.button>
+
+            {user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    backgroundColor: "#3B82F6",
+                    color: "#FFFFFF",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "500",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  {user.email?.[0].toUpperCase()}
+                </motion.div>
+                <motion.button
+                  whileHover={{ scale: 1.05, backgroundColor: "#DC2626" }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#EF4444",
+                    color: "#FFFFFF",
+                    borderRadius: "20px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  }}
+                  onClick={handleLogout}
+                >
+                  Logout
+                </motion.button>
+              </div>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.05, backgroundColor: "#2563EB" }}
+                whileTap={{ scale: 0.95 }}
+                style={{
+                  display: "none",
+                  padding: "8px 16px",
+                  backgroundColor: "#3B82F6",
+                  color: "#FFFFFF",
+                  borderRadius: "20px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={handleGoogleLogin}
+                className="md:flex hidden"
+              >
+                Login
+              </motion.button>
+            )}
+
+            {/* Menu Button on Mobile */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              style={{ padding: "8px", cursor: "pointer" }}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden"
+            >
+              <Menu style={{ height: "24px", width: "24px", color: "#374151" }} />
+            </motion.button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <motion.div
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          transition={{ type: "spring", stiffness: 100 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: "280px",
+            background: "linear-gradient(180deg, #FFFFFF 0%, #F3F4F6 100%)",
+            boxShadow: "-4px 0 6px -1px rgba(0, 0, 0, 0.1)",
+            zIndex: 50,
+            padding: "24px",
+            fontFamily: "'Poppins', sans-serif",
+          }}
+          className="md:hidden"
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
+            >
+              <HeartPulse style={{ height: "24px", width: "24px", color: "#3B82F6" }} />
+              <span style={{ fontWeight: "700", fontSize: "20px", color: "#1F2937" }}>NutriWise</span>
+            </motion.div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <X style={{ height: "24px", width: "24px", color: "#374151" }} />
+            </motion.button>
+          </div>
+          <nav style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {menuItems.map((item) => (
+              <motion.button
+                key={item.label}
+                whileHover={{ scale: 1.02, backgroundColor: "#E0F2FE" }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  color: "#374151",
+                  fontWeight: "500",
+                  fontSize: "16px",
+                  letterSpacing: "0.5px",
+                  padding: "12px 16px",
+                  borderRadius: "12px",
+                  backgroundColor: "transparent",
+                  transition: "all 0.3s ease",
+                  cursor: "pointer",
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </motion.button>
+            ))}
+            {/* AI Chat Button on Mobile */}
+            <motion.button
+              whileHover={{ scale: 1.02, backgroundColor: showAIChat ? "#DC2626" : "#2563EB" }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "12px 16px",
+                backgroundColor: showAIChat ? "#EF4444" : "#3B82F6",
+                color: "#FFFFFF",
+                borderRadius: "12px",
+                fontSize: "16px",
+                fontWeight: "500",
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              }}
+              onClick={handleToggleAIChatTemporarily}
+            >
+              <MessageSquare style={{ height: "18px", width: "18px" }} />
+              {showAIChat ? "Hide AI Chat" : "Show AI Chat"}
+            </motion.button>
+            {user ? (
+              <motion.button
+                whileHover={{ scale: 1.02, backgroundColor: "#DC2626" }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  backgroundColor: "#EF4444",
+                  color: "#FFFFFF",
+                  borderRadius: "12px",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={handleLogout}
+              >
+                Logout
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.02, backgroundColor: "#2563EB" }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  backgroundColor: "#3B82F6",
+                  color: "#FFFFFF",
+                  borderRadius: "12px",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                }}
+                onClick={handleGoogleLogin}
+              >
+                Login
+              </motion.button>
+            )}
+          </nav>
+        </motion.div>
+      )}
 
       <AuthModal
         open={openAuthModal}
@@ -304,394 +564,497 @@ const HomePage = () => {
         email={tempEmail}
       />
 
-      {error && (
-        <Box sx={{ position: "fixed", top: 80, width: "100%", zIndex: 1000, textAlign: "center" }}>
-          <Typography color="error" variant="body1" sx={{ bgcolor: "rgba(255, 0, 0, 0.1)", p: 2 }}>
-            {error}
-          </Typography>
-        </Box>
-      )}
-
-      <Box
-        sx={{
-          minHeight: "100vh",
-          background: "linear-gradient(135deg, #1a237e 0%, #3949ab 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "white",
-          textAlign: "center",
-          p: 0,
-          m: -1,
-          position: "relative",
+      {/* Hero Section */}
+      <section style={{
+        position: "relative",
+        padding: "96px 0",
+        minHeight: "90vh",
+        display: "flex",
+        alignItems: "center",
+        background: "linear-gradient(to right, #3B82F6, rgba(59, 130, 246, 0.2))",
+        color: "#FFFFFF"
+      }}>
+        <div style={{
+          position: "absolute",
           top: 0,
           left: 0,
-        }}
-      >
-        <Container maxWidth="md">
-          <motion.div
-            initial={{ opacity: 0, y: -30 }}
+          right: 0,
+          bottom: 0,
+          backgroundImage: "url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=2070&auto=format&fit=crop')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: 0.2
+        }} />
+        <div style={{
+          margin: "0 auto",
+          textAlign: "center",
+          padding: "0 16px",
+          maxWidth: "1280px",
+          position: "relative",
+          zIndex: 10
+        }}>
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: "easeOut" }}
+            transition={{ duration: 0.8 }}
+            style={{
+              fontSize: "48px",
+              fontWeight: "bold",
+              marginBottom: "24px",
+              letterSpacing: "-0.5px"
+            }}
           >
-            <Typography
-              variant="h2"
-              sx={{ fontWeight: 700, mb: 3, display: "flex", gap: 1, justifyContent: "center" }}
-            >
-              {"Sống Khỏe Mỗi Ngày Cùng NutriWise".split(" ").map((word, index) => (
-                <motion.span
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.5, duration: 2 }}
-                  style={{ display: "inline-block" }}
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </Typography>
-          </motion.div>
-
+            Live Healthier Every Day with NutriWise
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            style={{
+              fontSize: "18px",
+              marginBottom: "32px",
+              maxWidth: "720px",
+              marginLeft: "auto",
+              marginRight: "auto"
+            }}
+          >
+            Smart nutrition solutions for a healthier lifestyle
+          </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            style={{ display: "flex", justifyContent: "center", gap: "20px" }} // Tăng khoảng cách giữa 2 nút
           >
-            <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
-              Giải pháp dinh dưỡng thông minh giúp bạn có một lối sống lành mạnh
-            </Typography>
-          </motion.div>
+            {/* Nút Get Started */}
+            <motion.button
+              whileHover={{ scale: 1.05, boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)" }}
+              whileTap={{ scale: 0.95 }}
+              style={{
+                padding: "14px 28px", // Tăng padding để nút rộng rãi hơn
+                background: "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)", // Gradient nhẹ cho nút
+                color: "#3B82F6",
+                borderRadius: "12px", // Bo tròn mềm mại hơn
+                fontFamily: "'Poppins', sans-serif", // Đồng bộ font
+                fontSize: "18px", // Tăng kích thước chữ
+                fontWeight: "600", // Tăng độ đậm
+                letterSpacing: "0.5px", // Thêm khoảng cách chữ
+                cursor: "pointer",
+                transition: "all 0.3s ease", // Hiệu ứng mượt mà
+                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)", // Thêm bóng đổ
+                display: "flex",
+                alignItems: "center",
+                gap: "8px", // Khoảng cách giữa chữ và biểu tượng
+                border: "none"
+              }}
+              onClick={handleGoogleLogin}
+              onMouseOver={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #F3F4F6 0%, #FFFFFF 100%)")} // Đổi hướng gradient khi hover
+              onMouseOut={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)")}
+            >
+              Get Started
+              <ArrowRight style={{ height: "22px", width: "22px" }} /> {/* Tăng kích thước biểu tượng */}
+            </motion.button>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 1, ease: "easeOut" }}
-          >
-            <Button variant="contained" size="large" sx={{ mr: 2 }} onClick={handleGoogleLogin}>
-              Bắt đầu ngay
-            </Button>
+            {/* Nút Learn More */}
+            <motion.button
+              whileHover={{ scale: 1.05, boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)" }}
+              whileTap={{ scale: 0.95 }}
+              style={{
+                padding: "14px 28px", // Tăng padding để nút rộng rãi hơn
+                backgroundColor: "transparent",
+                color: "#FFFFFF",
+                border: "2px solid rgba(255, 255, 255, 0.8)", // Viền trắng nhẹ
+                borderRadius: "12px", // Bo tròn mềm mại hơn
+                fontFamily: "'Poppins', sans-serif", // Đồng bộ font
+                fontSize: "18px", // Tăng kích thước chữ
+                fontWeight: "600", // Tăng độ đậm
+                letterSpacing: "0.5px", // Thêm khoảng cách chữ
+                cursor: "pointer",
+                transition: "all 0.3s ease", // Hiệu ứng mượt mà
+                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)" // Thêm bóng đổ
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)"; // Hiệu ứng hover sáng nhẹ
+                e.currentTarget.style.border = "2px solid #FFFFFF"; // Viền trắng đậm hơn
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.border = "2px solid rgba(255, 255, 255, 0.8)";
+              }}
+            >
+              Learn More
+            </motion.button>
           </motion.div>
-        </Container>
-      </Box>
+        </div>
+      </section>
 
       {/* Features Section */}
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Typography variant="h3" align="center" sx={{ mb: 6, fontWeight: 600 }}>
-          Tính năng nổi bật
-        </Typography>
-        <Grid container spacing={4}>
-          {features.map((feature, index) => (
-            <Grid item xs={12} md={3} key={index}>
-              <Paper
-                sx={{
-                  p: 3,
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  textAlign: "center",
-                  borderRadius: 4,
-                  transition: "transform 0.3s",
-                  "&:hover": {
-                    transform: "translateY(-8px)",
-                  },
+      <section style={{ padding: "80px 0", backgroundColor: "#FFFFFF" }}>
+        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            style={{
+              fontSize: "36px",
+              fontWeight: "bold",
+              textAlign: "center",
+              marginBottom: "48px",
+              color: "#1F2937"
+            }}
+          >
+            Key Features
+          </motion.h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }} className="sm:grid-cols-2 lg:grid-cols-4">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: index * 0.2 }}
+                style={{
+                  padding: "24px",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: "16px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  transition: "box-shadow 0.3s",
+                  border: "2px solid #DBEAFE"
                 }}
+                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)")}
+                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)")}
               >
-                {feature.icon}
-                <Typography variant="h6" sx={{ my: 2 }}>
-                  {feature.title}
-                </Typography>
-                <Typography color="text.secondary">{feature.description}</Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>{feature.icon}</div>
+                <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "8px", textAlign: "center", color: "#1F2937" }}>{feature.title}</h3>
+                <p style={{ textAlign: "center", color: "#6B7280" }}>{feature.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Popular Ingredients Section */}
-      <Container maxWidth="lg" sx={{ py: 8, bgcolor: "#f5f5f5" }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
-          <LocalDiningIcon sx={{ fontSize: 40, color: "#4caf50", mr: 2 }} />
-          <Typography variant="h3" sx={{ fontWeight: 600 }}>
-            Nguyên liệu phổ biến
-          </Typography>
-        </Box>
-        <Grid container spacing={3}>
-          {loading ? (
-            <Typography>Loading ingredients...</Typography>
-          ) : error ? (
-            <Typography color="error">{error}</Typography>
-          ) : ingredients.length > 0 ? (
-            ingredients.map((ingredient, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card
-                  sx={{
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    borderRadius: 4,
-                    transition: "transform 0.3s",
-                    "&:hover": {
-                      transform: "scale(1.05)",
-                    },
-                    bgcolor: "#fff3e0",
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      {ingredient.name || `Ingredient ${index + 1}`}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mb: 2 }}>
-                      {ingredient.description || "No description available"}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
-          ) : (
-            <Typography>No ingredients available</Typography>
+      <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
+        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            style={{
+              fontSize: "36px",
+              fontWeight: "bold",
+              textAlign: "center",
+              marginBottom: "32px",
+              color: "#1F2937",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px"
+            }}
+          >
+            <Apple style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Popular Ingredients
+          </motion.h2>
+          <div
+            style={{
+              display: "flex",
+              overflowX: "auto",
+              gap: "16px",
+              padding: "16px 0",
+              scrollBehavior: "smooth",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#3B82F6 #DBEAFE",
+            }}
+          >
+            {ingredients.slice(0, 6).map((ingredient, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+                whileHover={{ scale: 1.05, boxShadow: "0 12px 20px -5px rgba(0, 0, 0, 0.15)" }}
+                style={{
+                  flex: "0 0 240px",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: "16px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  overflow: "hidden",
+                  transition: "all 0.3s ease",
+                  border: "2px solid #DBEAFE",
+                }}
+              >
+                <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: "24px" }}>
+                  <img
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop"
+                    alt={ingredient.name ? `Ingredient: ${ingredient.name}` : `Ingredient ${index + 1}`}
+                    style={{
+                      width: "120px",
+                      height: "120px",
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                      border: "3px solid #3B82F6",
+                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </div>
+                <div style={{ padding: "16px", textAlign: "center" }}>
+                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937", marginBottom: "8px" }}>
+                    {ingredient.name || "No Name"}
+                  </h3>
+                  <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "12px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {ingredient.description || "No Description"}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: "#3B82F6",
+                      color: "#FFFFFF",
+                      borderRadius: "8px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      transition: "background-color 0.3s",
+                      width: "100%",
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
+                  >
+                    View Details
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          {ingredients.length > 6 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              style={{ display: "flex", justifyContent: "center", marginTop: "32px" }}
+            >
+              <button
+                style={{
+                  padding: "12px 24px",
+                  backgroundColor: "#3B82F6",
+                  color: "#FFFFFF",
+                  borderRadius: "8px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
+              >
+                View More <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
+              </button>
+            </motion.div>
           )}
-        </Grid>
-      </Container>
+        </div>
+      </section>
 
       {/* Featured Recipes Section */}
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
-          <RestaurantMenuIcon sx={{ fontSize: 40, color: "#ff9800", mr: 2 }} />
-          <Typography variant="h3" sx={{ fontWeight: 600 }}>
-            Công thức nổi bật
-          </Typography>
-        </Box>
-        <Grid container spacing={3}>
-          {loading ? (
-            <Typography>Loading recipes...</Typography>
-          ) : error ? (
-            <Typography color="error">{error}</Typography>
-          ) : recipes.length > 0 ? (
-            recipes.map((recipe, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card
-                  sx={{
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    borderRadius: 4,
-                    transition: "transform 0.3s",
-                    "&:hover": {
-                      transform: "scale(1.05)",
-                    },
-                    bgcolor: "#e0f7fa",
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      {recipe.name || `Recipe ${index + 1}`}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mb: 2 }}>
-                      {recipe.description || "No description available"}
-                    </Typography>
-                  </CardContent>
-                  <CardActions sx={{ p: 2 }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={<FavoriteIcon />}
+      <section style={{ padding: "80px 0", backgroundColor: "#FFFFFF" }}>
+        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            style={{
+              fontSize: "36px",
+              fontWeight: "bold",
+              textAlign: "center",
+              marginBottom: "48px",
+              color: "#1F2937",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px"
+            }}
+          >
+            <ChefHat style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Featured Recipes
+          </motion.h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }} className="sm:grid-cols-2 lg:grid-cols-3">
+            {recipes.slice(0, 6).map((recipe, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: index * 0.1 }}
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: "16px",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  overflow: "hidden",
+                  transition: "box-shadow 0.3s",
+                  border: "2px solid #DBEAFE"
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)")}
+                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)")}
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1504672281656-e4981d704151?q=80&w=2070&auto=format&fit=crop"
+                  alt={recipe.name ? `Recipe: ${recipe.name}` : `Recipe ${index + 1}`}
+                  style={{ width: "100%", height: "192px", objectFit: "cover" }}
+                />
+                <div style={{ padding: "24px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937" }}>{recipe.name || "No Name"}</h3>
+                    <button
                       onClick={() => handleAddFavorite(recipe.recipeId)}
                       disabled={!user}
-                      fullWidth
+                      style={{
+                        color: "#6B7280",
+                        transition: "color 0.3s",
+                        cursor: user ? "pointer" : "not-allowed"
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.color = user ? "#3B82F6" : "#6B7280")}
+                      onMouseOut={(e) => (e.currentTarget.style.color = "#6B7280")}
                     >
-                      Thêm vào yêu thích
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))
-          ) : (
-            <Typography>No recipes available</Typography>
+                      <Heart style={{ height: "20px", width: "20px" }} />
+                    </button>
+                  </div>
+                  <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "16px" }}>{recipe.description || "No Description"}</p>
+                  <button
+                    style={{
+                      width: "100%",
+                      padding: "8px 16px",
+                      backgroundColor: "#3B82F6",
+                      color: "#FFFFFF",
+                      borderRadius: "8px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      transition: "background-color 0.3s"
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
+                  >
+                    View Details
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          {recipes.length > 6 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              style={{ display: "flex", justifyContent: "center", marginTop: "32px" }}
+            >
+              <button
+                style={{
+                  padding: "12px 24px",
+                  backgroundColor: "#3B82F6",
+                  color: "#FFFFFF",
+                  borderRadius: "8px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s",
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
+              >
+                View More <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
+              </button>
+            </motion.div>
           )}
-        </Grid>
-      </Container>
+        </div>
+      </section>
 
       {/* Health Profile Section */}
-      <Container maxWidth="lg" sx={{ py: 8, bgcolor: "#f5f5f5" }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
-          <HealingIcon sx={{ fontSize: 40, color: "#2196f3", mr: 2 }} />
-          <Typography variant="h3" sx={{ fontWeight: 600 }}>
-            Thông tin sức khỏe của bạn
-          </Typography>
-        </Box>
-        {loading ? (
-          <Typography>Loading health profile...</Typography>
-        ) : error ? (
-          <Typography color="error">{error}</Typography>
-        ) : healthProfile ? (
-          <Card
-            sx={{
-              p: 4,
-              borderRadius: 8,
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
-              maxWidth: 600,
-              mx: "auto",
-              bgcolor: "#eceff1",
-            }}
-          >
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              Hồ sơ sức khỏe
-            </Typography>
-            <List>
-              <ListItem>
-                <ListItemText primary={`Health Profile ID: ${healthProfile.healthProfileId}`} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={`Full Name: ${healthProfile.fullName || "N/A"}`} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={`Gender: ${healthProfile.gender || "N/A"}`} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={`Height: ${healthProfile.height || "N/A"} cm`} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={`Weight: ${healthProfile.weight || "N/A"} kg`} />
-              </ListItem>
-            </List>
-          </Card>
-        ) : (
-          <Typography color="text.secondary">No health profile available. Please login to view.</Typography>
-        )}
-      </Container>
-
-      <Box
-        component="footer"
-        sx={{
-          py: 3,
-          px: 2,
-          mt: "auto",
-          backgroundColor: "white",
-          boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.05)",
-        }}
-      >
-        <Container maxWidth="lg">
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main", mb: 1 }}>
-                  NutriWise
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Giải pháp dinh dưỡng thông minh cho cuộc sống khỏe mạnh của bạn.
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <IconButton
-                  size="small"
-                  sx={{
-                    color: "#1877f2",
-                    "&:hover": { backgroundColor: "rgba(24, 119, 242, 0.04)" },
-                  }}
-                >
-                  <Facebook />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  sx={{
-                    color: "#1da1f2",
-                    "&:hover": { backgroundColor: "rgba(29, 161, 242, 0.04)" },
-                  }}
-                >
-                  <Twitter />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  sx={{
-                    color: "#0a66c2",
-                    "&:hover": { backgroundColor: "rgba(10, 102, 194, 0.04)" },
-                  }}
-                >
-                  <LinkedIn />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  sx={{
-                    color: "#e4405f",
-                    "&:hover": { backgroundColor: "rgba(228, 64, 95, 0.04)" },
-                  }}
-                >
-                  <Instagram />
-                </IconButton>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Liên kết nhanh
-              </Typography>
-              <Grid container spacing={1}>
-                {["Trang chủ", "Về chúng tôi", "Dịch vụ", "Blog", "Liên hệ"].map((text) => (
-                  <Grid item xs={6} key={text}>
-                    <Link
-                      href="#"
-                      underline="hover"
-                      sx={{
-                        color: "text.secondary",
-                        display: "block",
-                        py: 0.5,
-                        "&:hover": { color: "primary.main" },
-                      }}
-                    >
-                      {text}
-                    </Link>
-                  </Grid>
-                ))}
-              </Grid>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Thông tin liên hệ
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Email: contact@nutriwise.com
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Điện thoại: (84) 123 456 789
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Địa chỉ: 123 Đường ABC, Quận XYZ, TP.HCM
-              </Typography>
-            </Grid>
-          </Grid>
-
-          <Box
-            sx={{
-              mt: 3,
-              pt: 3,
-              borderTop: "1px solid",
-              borderColor: "divider",
+      <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
+        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            style={{
+              fontSize: "36px",
+              fontWeight: "bold",
+              textAlign: "center",
+              marginBottom: "48px",
+              color: "#1F2937",
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
-              flexWrap: "wrap",
-              gap: 2,
+              justifyContent: "center",
+              gap: "8px"
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              <Copyright sx={{ fontSize: 16, mr: 1 }} />
-              <Typography variant="body2" color="text.secondary">
-                2024 NutriWise. Đã đăng ký bản quyền.
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <Link href="#" underline="hover" sx={{ color: "text.secondary", fontSize: "0.875rem" }}>
-                Điều khoản sử dụng
-              </Link>
-              <Link href="#" underline="hover" sx={{ color: "text.secondary", fontSize: "0.875rem" }}>
-                Chính sách bảo mật
-              </Link>
-            </Box>
-          </Box>
-        </Container>
-      </Box>
+            <HeartPulse style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Health Information
+          </motion.h2>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            style={{
+              maxWidth: "960px",
+              margin: "0 auto",
+              backgroundColor: "#FFFFFF",
+              borderRadius: "16px",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              padding: "24px",
+              border: "2px solid #DBEAFE"
+            }}
+          >
+            {healthProfile ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }} className="sm:grid-cols-2">
+                <div>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Full Name</p>
+                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.fullName || "N/A"}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Gender</p>
+                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.gender || "N/A"}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Height</p>
+                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.height || "N/A"} cm</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Weight</p>
+                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.weight || "N/A"} kg</p>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center" }}>
+                <p style={{ color: "#6B7280", marginBottom: "16px" }}>Please login to view your health information.</p>
+                <button
+                  style={{
+                    padding: "12px 24px",
+                    backgroundColor: "#3B82F6",
+                    color: "#FFFFFF",
+                    borderRadius: "8px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                  }}
+                  onClick={handleGoogleLogin}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
+                >
+                  Login Now
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <Footer />
     </Box>
   );
 };
