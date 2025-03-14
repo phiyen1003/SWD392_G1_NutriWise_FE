@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, Mail, Phone, MapPin, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
+import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
 import { Box } from "@mui/material";
 
 import AIChat from "../../components/Home/AIChat";
@@ -12,22 +12,16 @@ import {
   googleLogin, 
   googleCallback, 
   signOut, 
-  completeProfile 
+  completeProfile, 
+  GoogleCallbackResponse 
 } from "../../api/accountApi";
 import { getAllRecipes } from "../../api/recipeApi";
 import { getAllIngredients } from "../../api/ingredientApi";
 import { getAllHealthProfiles } from "../../api/healthProfileApi";
 import { addFavorite } from "../../api/favoriteRecipeApi";
-import { GoogleCallbackResponse } from "../../api/accountApi";
-import { 
-  RecipeDTO, 
-  IngredientDTO, 
-  HealthProfileDTO, 
-  CreateFavoriteRecipeDTO 
-} from "../../types/types";
+import { RecipeDTO, IngredientDTO, HealthProfileDTO, CreateFavoriteRecipeDTO } from "../../types/types";
 import { JSX } from "react/jsx-runtime";
 
-// Define interfaces for TypeScript
 interface AppUser {
   email: string;
   token?: string;
@@ -63,58 +57,67 @@ const HomePage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Khôi phục trạng thái AI Chat từ localStorage
   useEffect(() => {
     const tempShowAIChat = localStorage.getItem("tempShowAIChat") === "true";
     if (tempShowAIChat) setShowAIChat(true);
   }, []);
 
+  // Xử lý callback từ Google login
   useEffect(() => {
-    const handleCallback = async () => {
+    const handleGoogleCallback = async () => {
       if (location.pathname === "/auth/callback") {
         try {
           const data: GoogleCallbackResponse = await googleCallback();
           const { token, email, isRegistered } = data;
 
-          if (token && email) {
-            const decoded: JwtPayload = JSON.parse(atob(token.split('.')[1]));
-            const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
-
-            if (!isRegistered) {
-              localStorage.setItem("tempToken", token);
-              localStorage.setItem("tempEmail", email);
-              localStorage.setItem("tempUserId", userId);
-              setTempUserId(userId);
-              setTempEmail(email);
-              setOpenAuthModal(true);
-              navigate("/", { replace: true });
-            } else {
-              localStorage.setItem("token", token);
-              localStorage.setItem("email", email);
-              localStorage.setItem("userId", userId);
-              setUser({ email, token, userId });
-              setShowAIChat(true);
-              navigate("/", { replace: true });
-            }
+          if (!token || !email) {
+            throw new Error("Invalid response from Google callback: Missing token or email");
           }
+
+          const decoded: JwtPayload = JSON.parse(atob(token.split(".")[1]));
+          const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+
+          if (!isRegistered) {
+            // Người dùng mới
+            localStorage.setItem("tempToken", token);
+            localStorage.setItem("tempEmail", email);
+            localStorage.setItem("tempUserId", userId);
+            setTempUserId(userId);
+            setTempEmail(email);
+            setOpenAuthModal(true);
+          } else {
+            // Người dùng đã đăng ký
+            localStorage.setItem("token", token);
+            localStorage.setItem("email", email);
+            localStorage.setItem("userId", userId);
+            setUser({ email, token, userId });
+            setShowAIChat(true);
+          }
+          // Redirect thủ công về trang chủ
+          window.location.href = "http://localhost:3000";
         } catch (err) {
-          setError("Failed to process Google callback.");
+          setError(err instanceof Error ? err.message : "Failed to process Google callback");
+          window.location.href = "http://localhost:3000"; // Redirect ngay cả khi có lỗi
         }
       }
     };
-    handleCallback();
+    handleGoogleCallback();
   }, [location, navigate]);
 
+  // Khôi phục thông tin người dùng từ localStorage khi tải trang
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedEmail = localStorage.getItem("email");
     const storedUserId = localStorage.getItem("userId");
+
     if (storedToken && storedEmail && storedUserId) {
       setUser({ email: storedEmail, token: storedToken, userId: storedUserId });
       setShowAIChat(true);
     }
     fetchData();
   }, []);
-
+  // Lấy dữ liệu ban đầu
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -127,20 +130,22 @@ const HomePage: React.FC = () => {
       setIngredients(ingredientsData);
       setHealthProfile(healthProfiles[0] || null);
     } catch (err) {
-      setError("Failed to fetch data.");
+      setError("Failed to fetch initial data");
     } finally {
       setLoading(false);
     }
   };
 
+  // Khởi tạo đăng nhập Google
   const handleGoogleLogin = async () => {
     try {
       await googleLogin();
     } catch (err) {
-      setError("Failed to initiate Google login.");
+      setError(err instanceof Error ? err.message : "Failed to initiate Google login");
     }
   };
 
+  // Đăng xuất
   const handleLogout = async () => {
     try {
       await signOut();
@@ -149,43 +154,48 @@ const HomePage: React.FC = () => {
       localStorage.removeItem("tempShowAIChat");
       alert("Logged out successfully!");
     } catch (err) {
-      setError("Failed to sign out.");
+      setError(err instanceof Error ? err.message : "Failed to sign out");
     }
   };
 
+  // Hoàn thiện hồ sơ
   const handleCompleteProfile = async (data: CompleteProfileRequest) => {
     try {
       const response = await completeProfile(data);
-      alert(response.message || "Profile completed successfully!");
-      setShowAIChat(true);
-      localStorage.setItem("token", localStorage.getItem("tempToken") || "");
+      const storedToken = localStorage.getItem("tempToken") || "";
+      localStorage.setItem("token", storedToken);
       localStorage.setItem("email", data.email);
       localStorage.setItem("userId", data.userId);
       localStorage.removeItem("tempToken");
       localStorage.removeItem("tempEmail");
       localStorage.removeItem("tempUserId");
-      setUser({ email: data.email, token: localStorage.getItem("tempToken") || "", userId: data.userId });
+
+      setUser({ email: data.email, token: storedToken, userId: data.userId });
+      setShowAIChat(true);
       setOpenAuthModal(false);
-      navigate("/", { replace: true });
+      alert(response.message || "Profile completed successfully!");
+      window.location.href = "http://localhost:3000";
     } catch (err) {
-      setError("Failed to complete profile.");
+      setError(err instanceof Error ? err.message : "Failed to complete profile");
     }
   };
 
+  // Thêm công thức yêu thích
   const handleAddFavorite = async (recipeId: number) => {
     try {
       if (!user?.token || !user.userId) throw new Error("Please login to add favorites");
       const favoriteData: CreateFavoriteRecipeDTO = {
         userId: parseInt(user.userId),
-        recipeId: recipeId,
+        recipeId,
       };
       await addFavorite(favoriteData);
       alert(`Added recipe ${recipeId} to favorites!`);
     } catch (err) {
-      alert("Failed to add favorite.");
+      alert(err instanceof Error ? err.message : "Failed to add favorite");
     }
   };
 
+  // Chuyển đổi trạng thái AI Chat
   const handleToggleAIChatTemporarily = () => {
     const shouldShow = !showAIChat;
     setShowAIChat(shouldShow);
@@ -199,7 +209,6 @@ const HomePage: React.FC = () => {
     { title: "Community", description: "Connect with a health-focused community", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
   ];
 
-  // Menu data with icons
   const menuItems = [
     { label: "Home", icon: <Home style={{ height: "18px", width: "18px", color: "inherit" }} /> },
     { label: "Recipes", icon: <BookOpen style={{ height: "18px", width: "18px", color: "inherit" }} /> },
@@ -285,7 +294,6 @@ const HomePage: React.FC = () => {
           maxWidth: "1280px",
           width: "100%"
         }}>
-          {/* Logo */}
           <motion.div
             whileHover={{ scale: 1.05 }}
             style={{ display: "flex", alignItems: "center", gap: "8px" }}
@@ -294,7 +302,6 @@ const HomePage: React.FC = () => {
             <span style={{ fontWeight: "700", fontSize: "26px", color: "#1F2937" }}>NutriWise</span>
           </motion.div>
 
-          {/* Desktop Menu */}
           <nav style={{ display: "flex", alignItems: "center", gap: "16px" }} className="hidden md:flex">
             {menuItems.map((item) => (
               <motion.button
@@ -323,7 +330,6 @@ const HomePage: React.FC = () => {
           </nav>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {/* AI Chat Button on Desktop */}
             <motion.button
               whileHover={{ scale: 1.05, backgroundColor: showAIChat ? "#DC2626" : "#2563EB" }}
               whileTap={{ scale: 0.95 }}
@@ -391,7 +397,6 @@ const HomePage: React.FC = () => {
                 whileHover={{ scale: 1.05, backgroundColor: "#2563EB" }}
                 whileTap={{ scale: 0.95 }}
                 style={{
-                  display: "none",
                   padding: "8px 16px",
                   backgroundColor: "#3B82F6",
                   color: "#FFFFFF",
@@ -409,7 +414,6 @@ const HomePage: React.FC = () => {
               </motion.button>
             )}
 
-            {/* Menu Button on Mobile */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -486,7 +490,6 @@ const HomePage: React.FC = () => {
                 {item.label}
               </motion.button>
             ))}
-            {/* AI Chat Button on Mobile */}
             <motion.button
               whileHover={{ scale: 1.02, backgroundColor: showAIChat ? "#DC2626" : "#2563EB" }}
               whileTap={{ scale: 0.98 }}
@@ -555,6 +558,7 @@ const HomePage: React.FC = () => {
         </motion.div>
       )}
 
+      {/* Auth Modal */}
       <AuthModal
         open={openAuthModal}
         onClose={() => setOpenAuthModal(false)}
@@ -624,58 +628,56 @@ const HomePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            style={{ display: "flex", justifyContent: "center", gap: "20px" }} // Tăng khoảng cách giữa 2 nút
+            style={{ display: "flex", justifyContent: "center", gap: "20px" }}
           >
-            {/* Nút Get Started */}
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)" }}
               whileTap={{ scale: 0.95 }}
               style={{
-                padding: "14px 28px", // Tăng padding để nút rộng rãi hơn
-                background: "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)", // Gradient nhẹ cho nút
+                padding: "14px 28px",
+                background: "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)",
                 color: "#3B82F6",
-                borderRadius: "12px", // Bo tròn mềm mại hơn
-                fontFamily: "'Poppins', sans-serif", // Đồng bộ font
-                fontSize: "18px", // Tăng kích thước chữ
-                fontWeight: "600", // Tăng độ đậm
-                letterSpacing: "0.5px", // Thêm khoảng cách chữ
+                borderRadius: "12px",
+                fontFamily: "'Poppins', sans-serif",
+                fontSize: "18px",
+                fontWeight: "600",
+                letterSpacing: "0.5px",
                 cursor: "pointer",
-                transition: "all 0.3s ease", // Hiệu ứng mượt mà
-                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)", // Thêm bóng đổ
+                transition: "all 0.3s ease",
+                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
                 display: "flex",
                 alignItems: "center",
-                gap: "8px", // Khoảng cách giữa chữ và biểu tượng
+                gap: "8px",
                 border: "none"
               }}
               onClick={handleGoogleLogin}
-              onMouseOver={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #F3F4F6 0%, #FFFFFF 100%)")} // Đổi hướng gradient khi hover
+              onMouseOver={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #F3F4F6 0%, #FFFFFF 100%)")}
               onMouseOut={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)")}
             >
               Get Started
-              <ArrowRight style={{ height: "22px", width: "22px" }} /> {/* Tăng kích thước biểu tượng */}
+              <ArrowRight style={{ height: "22px", width: "22px" }} />
             </motion.button>
 
-            {/* Nút Learn More */}
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)" }}
               whileTap={{ scale: 0.95 }}
               style={{
-                padding: "14px 28px", // Tăng padding để nút rộng rãi hơn
+                padding: "14px 28px",
                 backgroundColor: "transparent",
                 color: "#FFFFFF",
-                border: "2px solid rgba(255, 255, 255, 0.8)", // Viền trắng nhẹ
-                borderRadius: "12px", // Bo tròn mềm mại hơn
-                fontFamily: "'Poppins', sans-serif", // Đồng bộ font
-                fontSize: "18px", // Tăng kích thước chữ
-                fontWeight: "600", // Tăng độ đậm
-                letterSpacing: "0.5px", // Thêm khoảng cách chữ
+                border: "2px solid rgba(255, 255, 255, 0.8)",
+                borderRadius: "12px",
+                fontFamily: "'Poppins', sans-serif",
+                fontSize: "18px",
+                fontWeight: "600",
+                letterSpacing: "0.5px",
                 cursor: "pointer",
-                transition: "all 0.3s ease", // Hiệu ứng mượt mà
-                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)" // Thêm bóng đổ
+                transition: "all 0.3s ease",
+                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)"
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)"; // Hiệu ứng hover sáng nhẹ
-                e.currentTarget.style.border = "2px solid #FFFFFF"; // Viền trắng đậm hơn
+                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
+                e.currentTarget.style.border = "2px solid #FFFFFF";
               }}
               onMouseOut={(e) => {
                 e.currentTarget.style.backgroundColor = "transparent";
@@ -971,7 +973,7 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Health Profile Section */}
+      {/* Health Information Section */}
       <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
         <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
           <motion.h2

@@ -45,12 +45,14 @@ export interface CompleteProfileRequest {
 
 // CreateAllergenDTO
 export interface CreateAllergenDTO {
+  allergenId: number;
   name?: string | null;
   description?: string | null;
 }
 
 // CreateCategoryDTO
 export interface CreateCategoryDTO {
+  categoryId: number;
   name?: string | null;
   description?: string | null;
 }
@@ -101,6 +103,7 @@ export interface CreateHealthProfileDTO {
 
 // CreateIngredientDTO
 export interface CreateIngredientDTO {
+  // ingredientId: number;
   name?: string | null;
   description?: string | null;
   isAllergen: boolean;

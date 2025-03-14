@@ -30,7 +30,7 @@ export interface GoogleCallbackResponse {
   email: string;
   givenName: string;
   surname: string | null;
-  isRegistered: boolean; // Thay profileComplete bằng isRegistered
+  isRegistered: boolean;
   profileComplete: boolean;
 }
 
@@ -60,7 +60,7 @@ export interface UpdateProfileRequest {
 
 export const googleLogin = async (): Promise<void> => {
   try {
-    const returnUrl = encodeURIComponent(`${window.location.origin}/auth/callback`);
+    const returnUrl = encodeURIComponent("http://localhost:3000/auth/callback"); // Đổi lại để frontend xử lý callback
     window.location.href = `${apiClient.defaults.baseURL}/Account/google-login?returnUrl=${returnUrl}`;
   } catch (error) {
     throw new Error("Failed to initiate Google login: " + (error instanceof Error ? error.message : "Unknown error"));

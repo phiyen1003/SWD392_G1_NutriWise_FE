@@ -45,11 +45,11 @@ const menuItems = [
   { text: "Quản lý bữa ăn", icon: <RestaurantIcon />, path: "/nutriwise/meals" },
   { text: "Quản lý lịch sử thực đơn", icon: <HistoryIcon />, path: "/nutriwise/menu-histories" },
   { text: "Quản lý công thức trong thực đơn", icon: <MenuBookIcon />, path: "/nutriwise/menu-recipes" },
-  // { text: "Quản lý hình ảnh thực đơn", icon: <ImageIcon />, path: "/nutriwise/menu-recipe-images" },
+  { text: "Quản lý hình ảnh thực đơn", icon: <ImageIcon />, path: "/nutriwise/menu-recipe-images" },
   { text: "Quản lý mục tiêu hồ sơ", icon: <FitnessCenterIcon />, path: "/nutriwise/profile-goals" },
   { text: "Quản lý công thức", icon: <MenuBookIcon />, path: "/nutriwise/recipes" },
   { text: "Quản lý mục tiêu sức khỏe công thức", icon: <FitnessCenterIcon />, path: "/nutriwise/recipe-health-goals" },
-  // { text: "Quản lý hình ảnh công thức", icon: <ImageIcon />, path: "/nutriwise/recipe-images" },
+  { text: "Quản lý hình ảnh công thức", icon: <ImageIcon />, path: "/nutriwise/recipe-images" },
   { text: "Báo cáo & Thống kê", icon: <AssessmentIcon />, path: "/nutriwise/reports" },
   { text: "Cài đặt hệ thống", icon: <SettingsIcon />, path: "/nutriwise/settings" },
 ];

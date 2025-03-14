@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import HomePage from "../pages/Home/HomePage";
 import AdminPage from "../pages/Admin/AdminPage";
 import UsersPage from "../pages/Admin/UsersPage";
@@ -24,7 +24,7 @@ import ProfileGoalsPage from "../pages/Admin/ProfileGoalsPage";
 import RecipeHealthGoalsPage from "../pages/Admin/RecipeHealthGoalsPage";
 import RecipeImagesPage from "../pages/Admin/RecipeImagesPage";
 import AuthModal from "../components/Home/AuthModal";
-import { googleLogin, googleCallback, completeProfile } from "../api/accountApi";
+import { googleCallback, completeProfile } from "../api/accountApi";
 import { CompleteProfileRequest, GoogleCallbackResponse } from "../api/accountApi";
 
 interface AppUser {
@@ -44,52 +44,99 @@ interface JwtPayload {
 const CallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = React.useState<string | null>(null);
+  const [tempUserId, setTempUserId] = React.useState<string>("");
+  const [tempEmail, setTempEmail] = React.useState<string>("");
+  const [showAuthModal, setShowAuthModal] = React.useState<boolean>(false);
 
   useEffect(() => {
     const fetchCallbackData = async () => {
       try {
         const data: GoogleCallbackResponse = await googleCallback();
-        const { token, email, profileComplete } = data;
+        const { token, email, isRegistered } = data;
 
-        if (token && email) {
-          const decoded: JwtPayload = JSON.parse(atob(token.split('.')[1])); // Giả định decode JWT
-          const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+        if (!token || !email) {
+          throw new Error("No token or email in callback response.");
+        }
 
-          if (!profileComplete) {
-            localStorage.setItem("tempToken", token);
-            localStorage.setItem("tempEmail", email);
-            localStorage.setItem("tempUserId", userId);
-            navigate("/?showAuthModal=true");
-          } else {
-            localStorage.setItem("token", token);
-            localStorage.setItem("email", email);
-            localStorage.setItem("userId", userId);
-            navigate("/");
-          }
+        const decoded: JwtPayload = JSON.parse(atob(token.split(".")[1]));
+        const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+
+        if (!isRegistered) {
+          // Người dùng mới hoặc chưa hoàn thiện hồ sơ
+          localStorage.setItem("tempToken", token);
+          localStorage.setItem("tempEmail", email);
+          localStorage.setItem("tempUserId", userId);
+          setTempUserId(userId);
+          setTempEmail(email);
+          setShowAuthModal(true);
+          navigate("/"); // Redirect về trang chủ và hiển thị AuthModal
         } else {
-          setError("No token or email in callback response.");
+          // Người dùng đã đăng ký
+          localStorage.setItem("token", token);
+          localStorage.setItem("email", email);
+          localStorage.setItem("userId", userId);
+          navigate("/"); // Redirect về trang chủ
         }
       } catch (err) {
         setError("Failed to process Google callback: " + (err instanceof Error ? err.message : "Unknown error"));
         console.error("Callback error details:", err);
+        setTimeout(() => navigate("/"), 3000); // Tự động redirect sau 3 giây nếu có lỗi
       }
     };
 
     fetchCallbackData();
   }, [navigate]);
 
+  const handleCompleteProfile = async (data: CompleteProfileRequest) => {
+    try {
+      await completeProfile(data);
+      localStorage.setItem("token", localStorage.getItem("tempToken") || "");
+      localStorage.setItem("email", data.email);
+      localStorage.setItem("userId", data.userId);
+      localStorage.removeItem("tempToken");
+      localStorage.removeItem("tempEmail");
+      localStorage.removeItem("tempUserId");
+      setShowAuthModal(false);
+      navigate("/"); // Redirect về trang chủ mà không làm mất trạng thái SPA
+    } catch (err) {
+      setError("Failed to complete profile: " + (err instanceof Error ? err.message : "Unknown error"));
+    }
+  };
+
   if (error) {
     return (
       <div style={{ textAlign: "center", padding: "20px" }}>
         <p style={{ color: "red" }}>{error}</p>
-        <button onClick={() => navigate("/")} style={{ marginTop: "10px" }}>
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            marginTop: "10px",
+            padding: "8px 16px",
+            backgroundColor: "#3B82F6",
+            color: "#FFFFFF",
+            borderRadius: "8px",
+            cursor: "pointer",
+          }}
+        >
           Back to Home
         </button>
       </div>
     );
   }
 
-  return <div>Processing Google callback...</div>;
+  return (
+    <>
+      <div>Processing Google callback...</div>
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onCompleteProfile={handleCompleteProfile}
+        isNewUser={true}
+        userId={tempUserId}
+        email={tempEmail}
+      />
+    </>
+  );
 };
 
 // Component chính của ứng dụng
@@ -97,24 +144,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Router>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <>
-              <HomePage />
-              <AuthModal
-                open={new URLSearchParams(window.location.search).get("showAuthModal") === "true"}
-                onClose={() => {
-                  window.history.replaceState({}, document.title, window.location.pathname);
-                }}
-                onCompleteProfile={handleCompleteProfile}
-                isNewUser={true}
-                userId={localStorage.getItem("tempUserId") || ""}
-                email={localStorage.getItem("tempEmail") || ""}
-              />
-            </>
-          }
-        />
+        <Route path="/" element={<HomePage />} />
         <Route path="/auth/callback" element={<CallbackPage />} />
         <Route path="/nutriwise/dashboard" element={<AdminPage />} />
         <Route path="/nutriwise/users" element={<UsersPage />} />
@@ -141,22 +171,6 @@ const AppRoutes: React.FC = () => {
       </Routes>
     </Router>
   );
-
-  function handleCompleteProfile(data: CompleteProfileRequest) {
-    completeProfile(data)
-      .then(() => {
-        localStorage.setItem("token", localStorage.getItem("tempToken") || "");
-        localStorage.setItem("email", data.email);
-        localStorage.setItem("userId", data.userId);
-        localStorage.removeItem("tempToken");
-        localStorage.removeItem("tempEmail");
-        localStorage.removeItem("tempUserId");
-        window.location.href = "/";
-      })
-      .catch((err) => {
-        console.error("Failed to complete profile:", err);
-      });
-  }
 };
 
 export default AppRoutes;

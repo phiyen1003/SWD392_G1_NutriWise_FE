@@ -2,14 +2,26 @@
 import apiClient from "./apiClient";
 import { RecipeDTO, UpdateRecipeDTO } from "../types/types"; // Import từ types.ts
 
-export const getAllRecipes = async (): Promise<RecipeDTO[]> => {
+export const getAllRecipes = async (params?: {
+  PageNumber?: number;
+  PageSize?: number;
+  OrderBy?: string;
+  Description?: string;
+  CategoryId?: number;
+  "CookingTime.Min"?: number;
+  "CookingTime.Max"?: number;
+  "Servings.Min"?: number;
+  "Servings.Max"?: number;
+  CombineWith?: number; // 0 hoặc 1
+}): Promise<RecipeDTO[]> => {
   try {
-    const response = await apiClient.get("/Recipe/all-recipes");
+    const response = await apiClient.get("/Recipe/all-recipes", { params });
     return response.data;
   } catch (error) {
     throw new Error("Failed to fetch recipes");
   }
 };
+
 
 export const getRecipeById = async (id: number): Promise<RecipeDTO> => { // id: string -> number
   try {
