@@ -2,7 +2,7 @@
 
 // AllergenDTO
 export interface AllergenDTO {
-  allergenId: number;
+  allergenId?: number;
   name?: string | null;
   description?: string | null;
 }

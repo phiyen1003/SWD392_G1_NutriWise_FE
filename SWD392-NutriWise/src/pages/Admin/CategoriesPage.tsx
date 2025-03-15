@@ -1,11 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+
 import { Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel, Button } from "@mui/material";
-import { CategoryDTO } from "../../types/types";
-import Layout from "../../components/Admin/Layout";
-import apiClient from "../../api/apiClient";
 import { Delete } from "@mui/icons-material";
+import { VStack, Spinner, Text } from "@chakra-ui/react";
+
+import { CategoryDTO } from "../../types/types";
+import apiClient from "../../api/apiClient";
+
+import Layout from "../../components/Admin/Layout";
 import CategoryModal from "../../components/Admin/CategoryModal";
-import Toast from "../../components/ToastComponent";
+
+import { Toast } from "../../components/ToastComponent";
+import { CustomPagination } from "../../components/PagingComponent";
 
 const CategoriesPage: React.FC = () => {
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
@@ -18,6 +24,16 @@ const CategoriesPage: React.FC = () => {
   const [openToast, setOpenToast] = useState<boolean>(false);
   const [statusCode, setStatusCode] = useState<number>(0);
   const [information, setInformation] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const setPaging = (currentPage: number, totalCount: number, pageSize: number) => {
+    setTotalCount(totalCount);
+    setCurrentPage(currentPage);
+    setPageSize(pageSize);
+  }
 
   const initialState: CategoryDTO = {
     categoryId: 0,
@@ -25,19 +41,25 @@ const CategoriesPage: React.FC = () => {
     name: ''
   }
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await apiClient.get(`/Category/all-categories?orderBy=${orderBy} ${order}`);
-      console.log(response);
+      const response = await apiClient.get(`/Category/all-categories?orderBy=${orderBy} ${order}&PageNumber=${currentPage}`);
+      const paginationHeader = JSON.parse(response.headers["x-pagination"]);
+      console.log(paginationHeader);
+      setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
       setCategories(response.data);
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      onToast(500, true, 'Có lỗi xảy ra trong quá trình xử lý');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [order, orderBy, currentPage]);
+
   useEffect(() => {
 
     fetchCategories();
-  }, [order, orderBy]);
+  }, [fetchCategories]);
 
   const handleSort = (property: keyof CategoryDTO) => {
     const isAsc = orderBy === property && order === "asc";
@@ -71,8 +93,13 @@ const CategoriesPage: React.FC = () => {
       try {
         const response = await apiClient.delete(`/Category/category-deletion/${categoryId}`);
         if (response.status === 200) {
-          fetchCategories();
           onToast(200, true, 'Đã xóa danh mục');
+
+          if (categories.length === 1 && currentPage > 1) {
+            setCurrentPage(prev => prev - 1);
+          } else {
+            fetchCategories();
+          }
         }
       } catch (error) {
         console.error("Error deleting category:", error);
@@ -81,96 +108,109 @@ const CategoriesPage: React.FC = () => {
         setLoadingId(null);
       }
     }, 300);
-  };  
+  };
 
   return (
     <>
-    <Layout title="Quản lý hạng mục" subtitle="Xem và quản lý các hạng mục">
-      <Toast 
-      onClose={handleCloseToast}
-      information={information}
-      open={openToast}
-      statusCode={statusCode}
-      ></Toast>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Quản lý danh mục
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-          Quản lý các danh mục công thức và thực đơn.
-        </Typography>
-        <Button
-          size="large"
-          variant="contained"
-          onClick={() => handleOpen(initialState, "create")}>
-          Thêm danh mục
-        </Button>
-        <Paper sx={{ mt: 2 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === "categoryId"}
-                    direction={order}
-                    onClick={() => handleSort("categoryId")}>
-                    ID
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === "name"}
-                    direction={order}
-                    onClick={() => handleSort("name")}>
-                    Tên
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Mô tả</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {categories.map((category) => (
-                <TableRow key={category.categoryId}>
-                  <TableCell>{category.categoryId}</TableCell>
-                  <TableCell>{category.name}</TableCell>
-                  <TableCell>{category.description}</TableCell>
-                  <TableCell>
-                    <Box display={"flex"} gap={3}>
-                      <Button color="info"
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleOpen(category, "update")}
-                      >
-                        Sửa
-                      </Button>
+      <Layout title="Quản lý hạng mục" subtitle="Xem và quản lý các hạng mục">
+        <Toast
+          onClose={handleCloseToast}
+          information={information}
+          open={openToast}
+          statusCode={statusCode}
+        ></Toast>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h4" gutterBottom>
+            Quản lý danh mục
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+            Quản lý các danh mục công thức và thực đơn.
+          </Typography>
+          <Button
+            size="large"
+            variant="contained"
+            onClick={() => handleOpen(initialState, "create")}>
+            Thêm danh mục
+          </Button>
+          {loading ? (
+            <VStack colorPalette="cyan">
+              <Spinner color="colorPalette.600" borderWidth="5px" size="lg" />
+              <Text color="colorPalette.600">Loading...</Text>
+            </VStack>)
+            : (
+              <Paper sx={{ mt: 2 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>
+                        <TableSortLabel
+                          active={orderBy === "categoryId"}
+                          direction={order}
+                          onClick={() => handleSort("categoryId")}>
+                          ID
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell>
+                        <TableSortLabel
+                          active={orderBy === "name"}
+                          direction={order}
+                          onClick={() => handleSort("name")}>
+                          Tên
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell>Mô tả</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.categoryId}>
+                        <TableCell>{category.categoryId}</TableCell>
+                        <TableCell>{category.name}</TableCell>
+                        <TableCell>{category.description}</TableCell>
+                        <TableCell>
+                          <Box display={"flex"} gap={3}>
+                            <Button color="info"
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleOpen(category, "update")}
+                            >
+                              Sửa
+                            </Button>
 
-                      <Button color="error"
-                        variant="contained"
-                        size="small"
-                        startIcon={<Delete />}
-                        loading={loadingId === category.categoryId}
-                        onClick={() => onDeleteCategory(category.categoryId)}
-                      >
-                        Xóa
-                      </Button>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-              <CategoryModal
-                open={open}
-                handleClose={handleClose}
-                category={selectedCategory!}
-                setCategories={setCategories}
-                action={modalAction}
-                title={modalAction === 'create' ? "Thêm danh mục" : "Cập nhật danh mục"}
-                initialState={initialState} />
-            </TableBody>
-          </Table>
-        </Paper>
-      </Box>
-    </Layout>
+                            <Button color="error"
+                              variant="contained"
+                              size="small"
+                              startIcon={<Delete />}
+                              loading={loadingId === category.categoryId}
+                              onClick={() => onDeleteCategory(category.categoryId)}
+                            >
+                              Xóa
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <CategoryModal
+                      open={open}
+                      handleClose={handleClose}
+                      category={selectedCategory!}
+                      setCategories={setCategories}
+                      action={modalAction}
+                      title={modalAction === 'create' ? "Thêm danh mục" : "Cập nhật danh mục"}
+                      initialState={initialState} />
+                  </TableBody>
+                </Table>
+                <CustomPagination
+                  count={totalCount}
+                  pageSize={pageSize}
+                  defaultPage={currentPage}
+                  onPageChange={(page) => setCurrentPage(page)}
+                />
+              </Paper>
+            )}
+        </Box>
+      </Layout>
     </>
   );
 };

@@ -2,13 +2,21 @@ import { Modal, Box, TextField, Button } from "@mui/material";
 import { createAllergen, getAllergenById, updateAllergen } from "../../api/allergenApi";
 import { useEffect, useState } from "react";
 import { AllergenDTO } from "../../types/types";
-import Toast from "../ToastComponent";
+import { Toast } from "../ToastComponent";
 
-const AllergenModal = ({ open, allergen, handleClose, setAllergens, title, action }: {
-    open: boolean, allergen: AllergenDTO,
-    handleClose: () => void, setAllergens: React.Dispatch<React.SetStateAction<AllergenDTO[]>>,
-    title: string, action: string
-}) => {
+const AllergenModal = ({ open,
+    allergen,
+    handleClose,
+    setAllergens,
+    title,
+    action }: {
+        open: boolean,
+        allergen: AllergenDTO,
+        handleClose: () => void, 
+        setAllergens: React.Dispatch<React.SetStateAction<AllergenDTO[]>>,
+        title: string, 
+        action: string,
+    }) => {
 
     const [openToast, setOpenToast] = useState<boolean>(false);
     const [statusCode, setStatusCode] = useState<number>(0);
