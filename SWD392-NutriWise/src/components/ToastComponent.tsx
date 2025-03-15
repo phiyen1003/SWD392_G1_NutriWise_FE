@@ -1,6 +1,6 @@
 import { Snackbar, Alert } from "@mui/material"
 
-const Toast = ({statusCode, information, open, onClose}: 
+export const Toast = ({statusCode, information, open, onClose}: 
     {statusCode: number, information: string, open: boolean | undefined, onClose: () => void}) => {
     return (
         <Snackbar 
@@ -19,5 +19,3 @@ const Toast = ({statusCode, information, open, onClose}:
         </Snackbar>
     )
 }
-
-export default Toast

@@ -2,7 +2,7 @@ import { Modal, Box, TextField, Button } from "@mui/material";
 import { useEffect, useState } from "react";
 import { CategoryDTO } from "../../types/types";
 import { createCategory, updateCategory } from "../../api/categoryApi";
-import Toast from "../ToastComponent";
+import { Toast } from "../ToastComponent";
 
 const CategoryModal = ({ open, category, handleClose, setCategories, title, action, initialState }: {
     open: boolean, category: CategoryDTO,
