@@ -16,21 +16,34 @@ export interface CategoryDTO {
 
 // ChatMessageDTO
 export interface ChatMessageDTO {
-  messageId: number;
-  conversationId: number;
+  chatMessageId: number;
+  chatSessionId: number;
   sentTime: string; // ISO date-time string, e.g., "2023-10-15T10:00:00Z"
   content?: string | null;
-  isFromUser: boolean;
+  isUserMessage: boolean;
 }
 
 // ChatConversationDTO
 export interface ChatConversationDTO {
-  conversationId: number;
+  chatSessionId: number;
   userId: number;
   startTime: string; // ISO date-time string
   lastMessageTime: string; // ISO date-time string
   title?: string | null;
   messages?: ChatMessageDTO[] | null;
+}
+
+// CreateChatMessageDTO
+export interface CreateChatMessageDTO {
+  chatSessionId: number;
+  content?: string | null;
+}
+
+// CreateConversationDTO
+export interface CreateConversationDTO {
+  userId: number;
+  initialMessage?: string | null;
+  title?: string | null;
 }
 
 // CompleteProfileRequest

@@ -1,52 +1,85 @@
-import { Modal, Box, Typography, TextField, Button } from "@mui/material";
-import { useState } from "react";
-import { CompleteProfileRequest, completeProfile } from "../../api/accountApi";
+import React, { useState } from "react";
+import { Modal, Box, TextField, Button, Typography, MenuItem } from "@mui/material";
+import { CompleteProfileRequest } from "../../api/accountApi";
 
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
-  onCompleteProfile: (data: CompleteProfileRequest) => void;
-  isNewUser?: boolean;
-  userId?: string;
-  email?: string;
+  onCompleteProfile: (data: CompleteProfileRequest) => Promise<void>;
+  isNewUser: boolean;
+  email: string;
+  userId: string;
 }
 
-const AuthModal = ({ open, onClose, onCompleteProfile, isNewUser, userId, email }: AuthModalProps) => {
-  const [profileData, setProfileData] = useState<CompleteProfileRequest>({
-    userId: userId || "",
+const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile, isNewUser, email, userId }) => {
+  const [formData, setFormData] = useState<CompleteProfileRequest>({
+    userId,
+    email,
     fullName: "",
-    email: email || "",
     gender: "",
     dateOfBirth: "",
     height: 0,
     weight: 0,
-    allergenId: 0,
-    bmi: 0,
+    allergenId: 0, // Giá trị mặc định
+    healthGoalId: 0, // Giá trị mặc định
+    bmi: 0, // Giá trị mặc định
     bloodPressure: "",
     cholesterol: "",
   });
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    try {
-      if (!profileData.userId || !profileData.fullName || !profileData.email) {
-        throw new Error("Vui lòng điền đầy đủ các trường bắt buộc (userId, fullName, email)");
-      }
-
-      if (profileData.height && profileData.weight) {
-        const heightInMeters = profileData.height / 100;
-        const bmi = profileData.weight / (heightInMeters * heightInMeters);
-        setProfileData((prev) => ({ ...prev, bmi: parseFloat(bmi.toFixed(2)) }));
-      }
-
-      await completeProfile(profileData);
-      onCompleteProfile(profileData);
-    } catch (err) {
-      setError("Failed to complete profile: " + (err instanceof Error ? err.message : "Unknown error"));
-    }
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!formData.fullName) newErrors.fullName = "Full Name is required";
+    if (!formData.gender) newErrors.gender = "Gender is required";
+    if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of Birth is required";
+    if (formData.height <= 0) newErrors.height = "Height must be greater than 0";
+    if (formData.weight <= 0) newErrors.weight = "Weight must be greater than 0";
+    if (formData.allergenId === undefined || formData.allergenId <= 0)
+      newErrors.allergenId = "Allergen ID must be greater than 0";
+    if (formData.healthGoalId === undefined || formData.healthGoalId <= 0)
+      newErrors.healthGoalId = "Health Goal ID must be greater than 0";
+    if (formData.bmi === undefined || formData.bmi <= 0) newErrors.bmi = "BMI must be greater than 0";
+    if (!formData.bloodPressure) newErrors.bloodPressure = "Blood Pressure is required";
+    if (!formData.cholesterol) newErrors.cholesterol = "Cholesterol is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  if (!isNewUser) return null;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      const newData = {
+        ...prev,
+        [name]:
+          name === "height" || name === "weight" || name === "allergenId" || name === "healthGoalId"
+            ? parseFloat(value) || 0
+            : value,
+      };
+      // Tính BMI tự động
+      if (name === "height" || name === "weight") {
+        const heightInMeters = newData.height / 100;
+        newData.bmi = heightInMeters > 0 ? newData.weight / (heightInMeters * heightInMeters) : 0;
+      }
+      return newData;
+    });
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+    setSubmitError(null);
+  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+  
+    try {
+      setSubmitError(null);
+      await onCompleteProfile(formData);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to complete profile";
+      setSubmitError(errorMessage);
+      console.error("Error completing profile:", error);
+    }
+  };
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -56,106 +89,149 @@ const AuthModal = ({ open, onClose, onCompleteProfile, isNewUser, userId, email 
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          bgcolor: "white",
+          width: 400,
+          bgcolor: "background.paper",
+          boxShadow: 24,
           p: 4,
           borderRadius: 2,
-          width: 400,
         }}
       >
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Hoàn thành hồ sơ sức khỏe
+        <Typography variant="h6" component="h2" gutterBottom>
+          {isNewUser ? "Complete Your Profile" : "Update Profile"}
         </Typography>
-        <TextField
-          label="User ID"
-          value={profileData.userId}
-          disabled
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Họ và tên"
-          value={profileData.fullName}
-          onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
-          fullWidth
-          required
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Email"
-          value={profileData.email}
-          onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-          fullWidth
-          required
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Giới tính"
-          value={profileData.gender || ""}
-          onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Ngày sinh (YYYY-MM-DD)"
-          value={profileData.dateOfBirth || ""}
-          onChange={(e) => setProfileData({ ...profileData, dateOfBirth: e.target.value })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Chiều cao (cm)"
-          type="number"
-          value={profileData.height || ""}
-          onChange={(e) => setProfileData({ ...profileData, height: parseFloat(e.target.value) || 0 })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Cân nặng (kg)"
-          type="number"
-          value={profileData.weight || ""}
-          onChange={(e) => setProfileData({ ...profileData, weight: parseFloat(e.target.value) || 0 })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Allergen ID"
-          type="number"
-          value={profileData.allergenId || ""}
-          onChange={(e) => setProfileData({ ...profileData, allergenId: parseInt(e.target.value) || 0 })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Huyết áp (mmHg)"
-          value={profileData.bloodPressure || ""}
-          onChange={(e) => setProfileData({ ...profileData, bloodPressure: e.target.value })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="Cholesterol (mg/dL)"
-          value={profileData.cholesterol || ""}
-          onChange={(e) => setProfileData({ ...profileData, cholesterol: e.target.value })}
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        <TextField
-          label="BMI"
-          type="number"
-          value={profileData.bmi || ""}
-          disabled
-          fullWidth
-          sx={{ mb: 2 }}
-        />
-        {error && (
+        {submitError && (
           <Typography color="error" sx={{ mb: 2 }}>
-            {error}
+            {submitError}
           </Typography>
         )}
-        <Button variant="contained" onClick={handleSubmit} fullWidth>
-          Hoàn thành
-        </Button>
+        <form onSubmit={handleSubmit}>
+          <TextField
+            label="User ID"
+            name="userId"
+            value={formData.userId}
+            fullWidth
+            margin="normal"
+            disabled
+          />
+          <TextField
+            label="Email"
+            name="email"
+            value={formData.email}
+            fullWidth
+            margin="normal"
+            disabled
+          />
+          <TextField
+            label="Full Name"
+            name="fullName"
+            value={formData.fullName}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.fullName}
+            helperText={errors.fullName}
+          />
+          <TextField
+            label="Gender"
+            name="gender"
+            value={formData.gender}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.gender}
+            helperText={errors.gender}
+          />
+          <TextField
+            label="Date of Birth"
+            name="dateOfBirth"
+            type="date"
+            value={formData.dateOfBirth}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+            error={!!errors.dateOfBirth}
+            helperText={errors.dateOfBirth}
+          />
+          <TextField
+            label="Height (cm)"
+            name="height"
+            type="number"
+            value={formData.height}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.height}
+            helperText={errors.height}
+          />
+          <TextField
+            label="Weight (kg)"
+            name="weight"
+            type="number"
+            value={formData.weight}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.weight}
+            helperText={errors.weight}
+          />
+          <TextField
+            label="Allergen ID"
+            name="allergenId"
+            type="number"
+            value={formData.allergenId}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.allergenId}
+            helperText={errors.allergenId}
+          />
+          <TextField
+            label="Health Goal ID"
+            name="healthGoalId"
+            type="number"
+            value={formData.healthGoalId}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.healthGoalId}
+            helperText={errors.healthGoalId}
+          />
+          <TextField
+            label="BMI"
+            name="bmi"
+            type="number"
+            value={formData.bmi}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.bmi}
+            helperText={errors.bmi}
+          />
+          <TextField
+            label="Blood Pressure"
+            name="bloodPressure"
+            value={formData.bloodPressure}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.bloodPressure}
+            helperText={errors.bloodPressure}
+          />
+          <TextField
+            label="Cholesterol"
+            name="cholesterol"
+            value={formData.cholesterol}
+            onChange={handleChange}
+            fullWidth
+            margin="normal"
+            error={!!errors.cholesterol}
+            helperText={errors.cholesterol}
+          />
+          <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 2 }}>
+            Submit
+          </Button>
+        </form>
       </Box>
     </Modal>
   );

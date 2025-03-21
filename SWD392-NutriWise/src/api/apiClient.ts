@@ -1,13 +1,12 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "https://nutriwise.azurewebsites.net/api",
+  baseURL: "https://swd392nutriwisewebapp-acgge4e8a2cubkh8.centralus-01.azurewebsites.net/api",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Thêm interceptor để xử lý token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token") || localStorage.getItem("tempToken");
@@ -17,6 +16,21 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("tempToken");
+      localStorage.removeItem("email");
+      localStorage.removeItem("tempEmail");
+      localStorage.removeItem("userId");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
 );
 
 export default apiClient;

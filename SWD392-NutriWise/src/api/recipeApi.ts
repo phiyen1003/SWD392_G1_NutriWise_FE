@@ -1,6 +1,7 @@
 // src/api/recipeApi.ts
 import apiClient from "./apiClient";
 import { RecipeDTO, UpdateRecipeDTO } from "../types/types"; // Import từ types.ts
+import { AxiosResponse } from "axios";
 
 export const getAllRecipes = async (params?: {
   PageNumber?: number;
@@ -12,14 +13,10 @@ export const getAllRecipes = async (params?: {
   "CookingTime.Max"?: number;
   "Servings.Min"?: number;
   "Servings.Max"?: number;
-  CombineWith?: number; // 0 hoặc 1
-}): Promise<RecipeDTO[]> => {
-  try {
-    const response = await apiClient.get("/Recipe/all-recipes", { params });
-    return response.data;
-  } catch (error) {
-    throw new Error("Failed to fetch recipes");
-  }
+  CombineWith?: number;
+}): Promise<AxiosResponse<RecipeDTO[]>> => {
+  const response = await apiClient.get("/Recipe/all-recipes", { params });
+  return response; // Trả về toàn bộ response thay vì response.data
 };
 
 

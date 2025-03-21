@@ -1,60 +1,66 @@
-// src/api/chatApi.ts
 import apiClient from "./apiClient";
-import { 
-  ChatConversationDTO, 
-  ChatMessageDTO, 
-  CreateConversationDTO, 
-  CreateChatMessageDTO, 
-  MenuSuggestionDTO 
-} from "../types/types"; // Import từ types.ts
+import {
+  ChatConversationDTO,
+  ChatMessageDTO,
+  CreateConversationDTO,
+  CreateChatMessageDTO,
+  MenuSuggestionDTO,
+} from "../types/types";
 
-export const getConversationsByUserId = async (userId: number): Promise<ChatConversationDTO[]> => { // userId: string -> number
+export const getConversationsByUserId = async (
+  userId: number,
+  pageNumber?: number,
+  pageSize?: number,
+  orderBy?: string
+): Promise<ChatConversationDTO[]> => {
   try {
-    const response = await apiClient.get(`/Chat/userconversations/${userId}`);
+    const response = await apiClient.get(`/api/Chat/user/${userId}`, {
+      params: { PageNumber: pageNumber, PageSize: pageSize, OrderBy: orderBy },
+    });
     return response.data;
   } catch (error) {
     throw new Error(`Failed to fetch conversations for user ${userId}`);
   }
 };
 
-export const getConversationById = async (conversationId: number): Promise<ChatConversationDTO> => { // conversationId: string -> number
+export const getConversationById = async (chatSessionId: number): Promise<ChatConversationDTO> => {
   try {
-    const response = await apiClient.get(`/Chat/conversation-by-id/${conversationId}`);
+    const response = await apiClient.get(`/api/Chat/session/${chatSessionId}`);
     return response.data;
   } catch (error) {
-    throw new Error(`Failed to fetch conversation with id ${conversationId}`);
+    throw new Error(`Failed to fetch conversation with id ${chatSessionId}`);
   }
 };
 
-export const deleteConversation = async (conversationId: number): Promise<void> => { // conversationId: string -> number
+export const deleteConversation = async (chatSessionId: number): Promise<void> => {
   try {
-    await apiClient.delete(`/Chat/conversation-delete/${conversationId}`);
+    await apiClient.delete(`/api/Chat/session/${chatSessionId}`);
   } catch (error) {
-    throw new Error(`Failed to delete conversation with id ${conversationId}`);
+    throw new Error(`Failed to delete conversation with id ${chatSessionId}`);
   }
 };
 
-export const createConversation = async (data: CreateConversationDTO): Promise<ChatConversationDTO> => { // Sử dụng CreateConversationDTO
+export const createConversation = async (data: CreateConversationDTO): Promise<ChatConversationDTO> => {
   try {
-    const response = await apiClient.post("/Chat/conversation-creation", data); // Thêm prefix /Chat/
+    const response = await apiClient.post("/api/Chat/session", data);
     return response.data;
   } catch (error) {
     throw new Error("Failed to create conversation");
   }
 };
 
-export const sendMessage = async (message: CreateChatMessageDTO): Promise<ChatMessageDTO> => { // Sử dụng CreateChatMessageDTO
+export const sendMessage = async (message: CreateChatMessageDTO): Promise<ChatMessageDTO> => {
   try {
-    const response = await apiClient.post("/Chat/message-send", message);
+    const response = await apiClient.post("/api/Chat/message", message);
     return response.data;
   } catch (error) {
     throw new Error("Failed to send message");
   }
 };
 
-export const getMenuSuggestion = async (conversationId: number): Promise<MenuSuggestionDTO> => { // conversationId: string -> number, dùng MenuSuggestionDTO
+export const getMenuSuggestion = async (chatSessionId: number): Promise<MenuSuggestionDTO> => {
   try {
-    const response = await apiClient.post("/Chat/menu-suggestion", { conversationId });
+    const response = await apiClient.post("/api/Chat/menu-suggestion", { chatSessionId });
     return response.data;
   } catch (error) {
     throw new Error("Failed to get menu suggestion");

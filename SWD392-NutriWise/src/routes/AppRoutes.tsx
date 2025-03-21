@@ -26,6 +26,7 @@ import RecipeImagesPage from "../pages/Admin/RecipeImagesPage";
 import AuthModal from "../components/Home/AuthModal";
 import { googleCallback, completeProfile } from "../api/accountApi";
 import { CompleteProfileRequest, GoogleCallbackResponse } from "../api/accountApi";
+import { auth } from "../firebase-config";
 
 interface AppUser {
   email: string;
@@ -40,19 +41,24 @@ interface JwtPayload {
   exp: number;
 }
 
-// Component xử lý callback từ Google
 const CallbackPage: React.FC = () => {
   const navigate = useNavigate();
-  const [error, setError] = React.useState<string | null>(null);
-  const [tempUserId, setTempUserId] = React.useState<string>("");
-  const [tempEmail, setTempEmail] = React.useState<string>("");
-  const [showAuthModal, setShowAuthModal] = React.useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tempUserId, setTempUserId] = useState<string>("");
+  const [tempEmail, setTempEmail] = useState<string>("");
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchCallbackData = async () => {
       try {
-        const data: GoogleCallbackResponse = await googleCallback();
-        const { token, email, isRegistered } = data;
+        const user = auth.currentUser;
+        if (!user) {
+          throw new Error("No user is currently signed in.");
+        }
+
+        const idToken = await user.getIdToken();
+        const data: GoogleCallbackResponse = await googleCallback(idToken);
+        const { token, email, isRegistered, profileComplete } = data;
 
         if (!token || !email) {
           throw new Error("No token or email in callback response.");
@@ -61,26 +67,23 @@ const CallbackPage: React.FC = () => {
         const decoded: JwtPayload = JSON.parse(atob(token.split(".")[1]));
         const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
 
-        if (!isRegistered) {
-          // Người dùng mới hoặc chưa hoàn thiện hồ sơ
+        if (!isRegistered || !profileComplete) {
           localStorage.setItem("tempToken", token);
           localStorage.setItem("tempEmail", email);
           localStorage.setItem("tempUserId", userId);
           setTempUserId(userId);
           setTempEmail(email);
           setShowAuthModal(true);
-          navigate("/"); // Redirect về trang chủ và hiển thị AuthModal
         } else {
-          // Người dùng đã đăng ký
           localStorage.setItem("token", token);
           localStorage.setItem("email", email);
           localStorage.setItem("userId", userId);
-          navigate("/"); // Redirect về trang chủ
+          navigate("/");
         }
       } catch (err) {
         setError("Failed to process Google callback: " + (err instanceof Error ? err.message : "Unknown error"));
         console.error("Callback error details:", err);
-        setTimeout(() => navigate("/"), 3000); // Tự động redirect sau 3 giây nếu có lỗi
+        setTimeout(() => navigate("/"), 3000);
       }
     };
 
@@ -89,15 +92,16 @@ const CallbackPage: React.FC = () => {
 
   const handleCompleteProfile = async (data: CompleteProfileRequest) => {
     try {
-      await completeProfile(data);
+      const response = await completeProfile(data);
       localStorage.setItem("token", localStorage.getItem("tempToken") || "");
-      localStorage.setItem("email", data.email);
+      localStorage.setItem("email", data.email || "");
       localStorage.setItem("userId", data.userId);
       localStorage.removeItem("tempToken");
       localStorage.removeItem("tempEmail");
       localStorage.removeItem("tempUserId");
       setShowAuthModal(false);
-      navigate("/"); // Redirect về trang chủ mà không làm mất trạng thái SPA
+      alert(response.message || "Profile completed successfully!");
+      navigate("/"); // Redirect về trang chủ
     } catch (err) {
       setError("Failed to complete profile: " + (err instanceof Error ? err.message : "Unknown error"));
     }
@@ -139,13 +143,12 @@ const CallbackPage: React.FC = () => {
   );
 };
 
-// Component chính của ứng dụng
 const AppRoutes: React.FC = () => {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/auth/callback" element={<CallbackPage />} />
+        <Route path="/auth/callback" element={<CallbackPage />} /> {/* Sửa để dùng CallbackPage */}
         <Route path="/nutriwise/dashboard" element={<AdminPage />} />
         <Route path="/nutriwise/users" element={<UsersPage />} />
         <Route path="/nutriwise/nutrition-plans" element={<NutritionPlansPage />} />

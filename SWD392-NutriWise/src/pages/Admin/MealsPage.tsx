@@ -1,4 +1,3 @@
-// src/pages/admin/MealsPage.tsx
 import React, { useState, useEffect } from "react";
 import {
   Container,
@@ -147,17 +146,17 @@ const MealsPage: React.FC = () => {
   const getImageUrl = (recipeId: number): string => {
     if (customImageUrls[recipeId]) {
       console.log("Using customImageUrl:", customImageUrls[recipeId]);
-      return customImageUrls[recipeId] || "https://picsum.photos/200";
+      return customImageUrls[recipeId] || "https://picsum.photos/300"; // Đảm bảo ảnh có kích thước phù hợp
     }
     if (isEditing || (!isEditing && newMeal.recipeId === recipeId && newMeal.imageUrl)) {
       console.log("Using newMeal.imageUrl:", newMeal.imageUrl);
-      return newMeal.imageUrl || "https://picsum.photos/200";
+      return newMeal.imageUrl || "https://picsum.photos/300";
     }
     const images = recipeImages[recipeId];
     console.log("Using recipeImages:", images);
     return images && images.length > 0
-      ? images[0].imageUrl ?? "https://picsum.photos/200"
-      : "https://picsum.photos/200";
+      ? images[0].imageUrl ?? "https://picsum.photos/300"
+      : "https://picsum.photos/300"; // Sử dụng ảnh có kích thước cố định
   };
 
   return (
@@ -222,7 +221,7 @@ const MealsPage: React.FC = () => {
               <CardMedia
                 component="img"
                 height="100"
-                image={newMeal.imageUrl || "https://picsum.photos/200"}
+                image={newMeal.imageUrl || "https://picsum.photos/300"}
                 alt="Preview"
                 sx={{ objectFit: "contain" }}
               />
@@ -251,24 +250,47 @@ const MealsPage: React.FC = () => {
             ) : (
               meals.map((meal) => (
                 <Grid item xs={12} sm={6} md={4} key={meal.mealId}>
-                  <Card sx={{ borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
+                  <Card
+                    sx={{
+                      borderRadius: "16px",
+                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+                      minHeight: "450px", // Chiều cao tối thiểu cho card
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
                     <CardMedia
                       component="img"
-                      height="200"
+                      height="300" // Chiều cao cố định cho hình ảnh
+                      width="100%" // Chiều rộng tự động theo card
                       image={getImageUrl(meal.recipeId)}
                       alt={`Meal ${meal.mealId}`}
+                      sx={{
+                        objectFit: "cover", // Đảm bảo hình ảnh vừa khung
+                        display: "block", // Xóa khoảng trống dư thừa
+                      }}
                     />
-                    <CardContent>
-                      <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, color: "#424242" }}>
-                        Meal ID: {meal.mealId}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
-                        Ngày: {meal.mealDate}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                        Giờ: {meal.mealTime}
-                      </Typography>
-                      <Chip label={`Recipe ID: ${meal.recipeId}`} color="primary" size="small" />
+                    <CardContent
+                      sx={{
+                        flexGrow: 1, // Đảm bảo nội dung lấp đầy không gian còn lại
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        padding: "16px",
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, color: "#424242" }}>
+                          Meal ID: {meal.mealId}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
+                          Ngày: {meal.mealDate}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
+                          Giờ: {meal.mealTime}
+                        </Typography>
+                        <Chip label={`Recipe ID: ${meal.recipeId}`} color="primary" size="small" />
+                      </Box>
                       <Grid container spacing={1} sx={{ mt: 2 }}>
                         <Grid item>
                           <Button onClick={() => editMeal(meal)} color="primary" variant="outlined">

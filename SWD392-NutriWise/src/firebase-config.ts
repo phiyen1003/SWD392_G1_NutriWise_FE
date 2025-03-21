@@ -1,5 +1,44 @@
+// import { initializeApp } from "firebase/app";
+// import { getAuth } from "firebase/auth";
+
+// const firebaseConfig = {
+//   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+//   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+//   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+//   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+//   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+// };
+
+// // Khởi tạo Firebase
+// const app = initializeApp(firebaseConfig);
+// const auth = getAuth(app);
+
+// export { auth, app };
+
+// src/firebase.ts
+
+
+// import { initializeApp } from "firebase/app";
+// import { getAuth, GoogleAuthProvider } from "firebase/auth";
+
+// const firebaseConfig = {
+//   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+//   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+//   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+//   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+//   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+// };
+
+// const app = initializeApp(firebaseConfig);
+// const auth = getAuth(app);
+// const googleProvider = new GoogleAuthProvider();
+
+// export { auth, app, googleProvider };
+
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -10,8 +49,12 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Khởi tạo Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
-export { auth, app };
+// Thêm scope nếu cần
+googleProvider.addScope("email");
+googleProvider.addScope("profile");
+
+export { app };

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
 import { Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import { getAllHealthProfiles } from "../../api/healthProfileApi";
 import { HealthProfileDTO } from "../../types/types";
 import Layout from "../../components/Admin/Layout";
+import { useEffect, useState } from "react";
 
 const HealthProfilesPage: React.FC = () => {
   const [profiles, setProfiles] = useState<HealthProfileDTO[]>([]);

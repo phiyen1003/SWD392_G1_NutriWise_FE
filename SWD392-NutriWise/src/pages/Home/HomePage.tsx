@@ -1,38 +1,26 @@
-import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+// src/HomePage.tsx
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
-import { Box } from "@mui/material";
-
-import AIChat from "../../components/Home/AIChat";
-import AuthModal from "../../components/Home/AuthModal";
-import Footer from "../../layout/Footer";
-import { 
-  CompleteProfileRequest, 
-  googleLogin, 
-  googleCallback, 
-  signOut, 
-  completeProfile, 
-  GoogleCallbackResponse 
-} from "../../api/accountApi";
+import { Box, CircularProgress } from "@mui/material";
+import { CompleteProfileRequest, firebaseLogin, signOut, updateProfile } from "../../api/accountApi"; // Cập nhật import
 import { getAllRecipes } from "../../api/recipeApi";
 import { getAllIngredients } from "../../api/ingredientApi";
 import { getAllHealthProfiles } from "../../api/healthProfileApi";
 import { addFavorite } from "../../api/favoriteRecipeApi";
 import { RecipeDTO, IngredientDTO, HealthProfileDTO, CreateFavoriteRecipeDTO } from "../../types/types";
 import { JSX } from "react/jsx-runtime";
+import AIChat from "../../components/Home/AIChat";
+import AuthModal from "../../components/Home/AuthModal";
+import Footer from "../../layout/Footer";
+import { auth } from "../../firebase-config";
+import { onAuthStateChanged } from "firebase/auth";
 
 interface AppUser {
   email: string;
-  token?: string;
-  userId?: string;
-}
-
-interface JwtPayload {
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier": string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": string;
-  exp: number;
+  token: string;
+  userId: string;
 }
 
 interface Feature {
@@ -50,75 +38,26 @@ const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [openAuthModal, setOpenAuthModal] = useState<boolean>(false);
-  const [tempUserId, setTempUserId] = useState<string>("");
-  const [tempEmail, setTempEmail] = useState<string>("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Khôi phục trạng thái AI Chat từ localStorage
-  useEffect(() => {
-    const tempShowAIChat = localStorage.getItem("tempShowAIChat") === "true";
-    if (tempShowAIChat) setShowAIChat(true);
-  }, []);
-
-  // Xử lý callback từ Google login
-  useEffect(() => {
-    const handleGoogleCallback = async () => {
-      if (location.pathname === "/auth/callback") {
-        try {
-          const data: GoogleCallbackResponse = await googleCallback();
-          const { token, email, isRegistered } = data;
-
-          if (!token || !email) {
-            throw new Error("Invalid response from Google callback: Missing token or email");
-          }
-
-          const decoded: JwtPayload = JSON.parse(atob(token.split(".")[1]));
-          const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
-
-          if (!isRegistered) {
-            // Người dùng mới
-            localStorage.setItem("tempToken", token);
-            localStorage.setItem("tempEmail", email);
-            localStorage.setItem("tempUserId", userId);
-            setTempUserId(userId);
-            setTempEmail(email);
-            setOpenAuthModal(true);
-          } else {
-            // Người dùng đã đăng ký
-            localStorage.setItem("token", token);
-            localStorage.setItem("email", email);
-            localStorage.setItem("userId", userId);
-            setUser({ email, token, userId });
-            setShowAIChat(true);
-          }
-          // Redirect thủ công về trang chủ
-          window.location.href = "http://localhost:3000";
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Failed to process Google callback");
-          window.location.href = "http://localhost:3000"; // Redirect ngay cả khi có lỗi
-        }
-      }
-    };
-    handleGoogleCallback();
-  }, [location, navigate]);
-
-  // Khôi phục thông tin người dùng từ localStorage khi tải trang
-  useEffect(() => {
+  const restoreUserState = useCallback(() => {
     const storedToken = localStorage.getItem("token");
     const storedEmail = localStorage.getItem("email");
     const storedUserId = localStorage.getItem("userId");
+    const tempShowAIChat = localStorage.getItem("tempShowAIChat") === "true";
 
     if (storedToken && storedEmail && storedUserId) {
       setUser({ email: storedEmail, token: storedToken, userId: storedUserId });
       setShowAIChat(true);
+    } else if (tempShowAIChat) {
+      setShowAIChat(true);
     }
-    fetchData();
   }, []);
-  // Lấy dữ liệu ban đầu
-  const fetchData = async () => {
+
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [recipesData, ingredientsData, healthProfiles] = await Promise.all([
@@ -126,76 +65,136 @@ const HomePage: React.FC = () => {
         getAllIngredients(),
         getAllHealthProfiles(),
       ]);
-      setRecipes(recipesData);
-      setIngredients(ingredientsData);
-      setHealthProfile(healthProfiles[0] || null);
+      setRecipes(Array.isArray(recipesData?.data) ? recipesData.data : []);
+      setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
+      setHealthProfile(Array.isArray(healthProfiles) && healthProfiles.length > 0 ? healthProfiles[0] : null);
     } catch (err) {
-      setError("Failed to fetch initial data");
+      setError("Không thể tải dữ liệu ban đầu");
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Khởi tạo đăng nhập Google
+  // Theo dõi trạng thái đăng nhập bằng Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        currentUser.getIdToken().then((idToken) => {
+          setUser({
+            email: currentUser.email || "",
+            token: idToken,
+            userId: currentUser.uid,
+          });
+          localStorage.setItem("token", idToken);
+          localStorage.setItem("email", currentUser.email || "");
+          localStorage.setItem("userId", currentUser.uid);
+          setShowAIChat(true);
+        });
+      } else {
+        setUser(null);
+        localStorage.removeItem("token");
+        localStorage.removeItem("email");
+        localStorage.removeItem("userId");
+        setShowAIChat(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    restoreUserState();
+    fetchData();
+
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [restoreUserState, fetchData, error]);
+
   const handleGoogleLogin = async () => {
     try {
-      await googleLogin();
+      setError(null);
+      const response = await firebaseLogin();
+      console.log("Phản hồi từ backend:", response);
+  
+      if (!response.profileComplete) {
+        setOpenAuthModal(true);
+      } else {
+        navigate("/");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initiate Google login");
+      const errorMessage = err instanceof Error ? err.message : "Không thể đăng nhập bằng Google";
+      setError(errorMessage);
+      console.error("Lỗi đăng nhập Google:", err);
     }
   };
-
-  // Đăng xuất
+  
+  if (error) {
+    return (
+      <Box sx={{ textAlign: "center", padding: "20px" }}>
+        <p style={{ color: "red" }}>{error}</p>
+        <button
+          onClick={handleGoogleLogin}
+          style={{
+            marginTop: "10px",
+            padding: "8px 16px",
+            backgroundColor: "#3B82F6",
+            color: "#FFFFFF",
+            borderRadius: "8px",
+            cursor: "pointer",
+          }}
+        >
+          Thử lại
+        </button>
+      </Box>
+    );
+  }
   const handleLogout = async () => {
     try {
       await signOut();
       setUser(null);
       setShowAIChat(false);
-      localStorage.removeItem("tempShowAIChat");
-      alert("Logged out successfully!");
+      setError(null);
+      navigate("/");
+      alert("Đăng xuất thành công!");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign out");
+      setError(err instanceof Error ? err.message : "Không thể đăng xuất");
     }
   };
 
-  // Hoàn thiện hồ sơ
   const handleCompleteProfile = async (data: CompleteProfileRequest) => {
     try {
-      const response = await completeProfile(data);
-      const storedToken = localStorage.getItem("tempToken") || "";
-      localStorage.setItem("token", storedToken);
-      localStorage.setItem("email", data.email);
-      localStorage.setItem("userId", data.userId);
-      localStorage.removeItem("tempToken");
-      localStorage.removeItem("tempEmail");
-      localStorage.removeItem("tempUserId");
-
-      setUser({ email: data.email, token: storedToken, userId: data.userId });
+      const response = await updateProfile(data);
+      setUser({ email: data.email || "", token: localStorage.getItem("token") || "", userId: data.userId });
       setShowAIChat(true);
       setOpenAuthModal(false);
-      alert(response.message || "Profile completed successfully!");
-      window.location.href = "http://localhost:3000";
+      setError(null);
+      alert(response.message || "Hồ sơ đã được cập nhật thành công!");
+      navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to complete profile");
+      setError(err instanceof Error ? err.message : "Không thể cập nhật hồ sơ");
     }
   };
 
-  // Thêm công thức yêu thích
   const handleAddFavorite = async (recipeId: number) => {
+    if (!user?.token || !user.userId) {
+      alert("Vui lòng đăng nhập để thêm vào danh sách yêu thích");
+      return;
+    }
     try {
-      if (!user?.token || !user.userId) throw new Error("Please login to add favorites");
       const favoriteData: CreateFavoriteRecipeDTO = {
         userId: parseInt(user.userId),
         recipeId,
       };
       await addFavorite(favoriteData);
-      alert(`Added recipe ${recipeId} to favorites!`);
+      alert(`Đã thêm công thức ${recipeId} vào danh sách yêu thích!`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to add favorite");
+      alert(err instanceof Error ? err.message : "Không thể thêm vào danh sách yêu thích");
     }
   };
 
-  // Chuyển đổi trạng thái AI Chat
   const handleToggleAIChatTemporarily = () => {
     const shouldShow = !showAIChat;
     setShowAIChat(shouldShow);
@@ -203,10 +202,10 @@ const HomePage: React.FC = () => {
   };
 
   const features: Feature[] = [
-    { title: "Diverse Menu", description: `Over ${recipes.length}+ healthy recipes`, icon: <ChefHat style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
-    { title: "Nutrition Advice", description: "Expert nutritionists at your service", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
-    { title: "Health Tracking", description: `Track your stats (Weight: ${healthProfile?.weight || "N/A"}kg)`, icon: <HeartPulse style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
-    { title: "Community", description: "Connect with a health-focused community", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Diverse Menu", description: `Hơn ${recipes.length}+ công thức lành mạnh`, icon: <ChefHat style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Nutrition Advice", description: "Chuyên gia dinh dưỡng hỗ trợ bạn", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Health Tracking", description: `Theo dõi số liệu (Cân nặng: ${healthProfile?.weight || "N/A"}kg)`, icon: <HeartPulse style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Community", description: "Kết nối với cộng đồng yêu sức khỏe", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
   ];
 
   const menuItems = [
@@ -216,11 +215,16 @@ const HomePage: React.FC = () => {
     { label: "About Us", icon: <Info style={{ height: "18px", width: "18px", color: "inherit" }} /> },
   ];
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", fontSize: "18px", color: "#333" }}>Loading...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+        <CircularProgress color="primary" />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", backgroundColor: "#F9FAFB" }}>
-      {/* AI Chat Floating Window */}
       {showAIChat && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -236,14 +240,13 @@ const HomePage: React.FC = () => {
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
             zIndex: 50,
             overflow: "hidden",
-            border: "1px solid #DBEAFE"
+            border: "1px solid #DBEAFE",
           }}
         >
           <AIChat />
         </motion.div>
       )}
 
-      {/* Error Alert */}
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -255,7 +258,7 @@ const HomePage: React.FC = () => {
             transform: "translateX(-50%)",
             zIndex: 50,
             display: "flex",
-            justifyContent: "center"
+            justifyContent: "center",
           }}
         >
           <div style={{
@@ -264,14 +267,19 @@ const HomePage: React.FC = () => {
             padding: "16px 24px",
             borderRadius: "8px",
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            maxWidth: "320px"
+            maxWidth: "320px",
           }}>
             {error}
+            <button
+              onClick={() => setError(null)}
+              style={{ marginLeft: "10px", color: "#DC2626", background: "none", border: "none", cursor: "pointer" }}
+            >
+              X
+            </button>
           </div>
         </motion.div>
       )}
 
-      {/* Header/Navbar */}
       <header style={{
         position: "fixed",
         top: 0,
@@ -292,7 +300,7 @@ const HomePage: React.FC = () => {
           justifyContent: "space-between",
           padding: "0 24px",
           maxWidth: "1280px",
-          width: "100%"
+          width: "100%",
         }}>
           <motion.div
             whileHover={{ scale: 1.05 }}
@@ -322,6 +330,7 @@ const HomePage: React.FC = () => {
                   transition: "all 0.3s ease",
                   cursor: "pointer",
                 }}
+                onClick={() => navigate(`/${item.label.toLowerCase().replace(" ", "-")}`)}
               >
                 {item.icon}
                 {item.label}
@@ -351,7 +360,7 @@ const HomePage: React.FC = () => {
               className="md:flex hidden"
             >
               <MessageSquare style={{ height: "16px", width: "16px" }} />
-              {showAIChat ? "Hide AI Chat" : "Show AI Chat"}
+              {showAIChat ? "Ẩn AI Chat" : "Hiện AI Chat"}
             </motion.button>
 
             {user ? (
@@ -371,7 +380,7 @@ const HomePage: React.FC = () => {
                     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                   }}
                 >
-                  {user.email?.[0].toUpperCase()}
+                  {user.email[0].toUpperCase()}
                 </motion.div>
                 <motion.button
                   whileHover={{ scale: 1.05, backgroundColor: "#DC2626" }}
@@ -389,7 +398,7 @@ const HomePage: React.FC = () => {
                   }}
                   onClick={handleLogout}
                 >
-                  Logout
+                  Đăng xuất
                 </motion.button>
               </div>
             ) : (
@@ -410,7 +419,7 @@ const HomePage: React.FC = () => {
                 onClick={handleGoogleLogin}
                 className="md:flex hidden"
               >
-                Login
+                Đăng nhập
               </motion.button>
             )}
 
@@ -427,7 +436,6 @@ const HomePage: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <motion.div
           initial={{ x: "100%" }}
@@ -485,6 +493,10 @@ const HomePage: React.FC = () => {
                   transition: "all 0.3s ease",
                   cursor: "pointer",
                 }}
+                onClick={() => {
+                  navigate(`/${item.label.toLowerCase().replace(" ", "-")}`);
+                  setMobileMenuOpen(false);
+                }}
               >
                 {item.icon}
                 {item.label}
@@ -511,7 +523,7 @@ const HomePage: React.FC = () => {
               onClick={handleToggleAIChatTemporarily}
             >
               <MessageSquare style={{ height: "18px", width: "18px" }} />
-              {showAIChat ? "Hide AI Chat" : "Show AI Chat"}
+              {showAIChat ? "Ẩn AI Chat" : "Hiện AI Chat"}
             </motion.button>
             {user ? (
               <motion.button
@@ -531,7 +543,7 @@ const HomePage: React.FC = () => {
                 }}
                 onClick={handleLogout}
               >
-                Logout
+                Đăng xuất
               </motion.button>
             ) : (
               <motion.button
@@ -551,24 +563,22 @@ const HomePage: React.FC = () => {
                 }}
                 onClick={handleGoogleLogin}
               >
-                Login
+                Đăng nhập
               </motion.button>
             )}
           </nav>
         </motion.div>
       )}
 
-      {/* Auth Modal */}
       <AuthModal
         open={openAuthModal}
         onClose={() => setOpenAuthModal(false)}
         onCompleteProfile={handleCompleteProfile}
         isNewUser={true}
-        userId={tempUserId}
-        email={tempEmail}
+        userId={localStorage.getItem("tempUserId") || ""}
+        email={localStorage.getItem("tempEmail") || ""}
       />
 
-      {/* Hero Section */}
       <section style={{
         position: "relative",
         padding: "96px 0",
@@ -576,7 +586,7 @@ const HomePage: React.FC = () => {
         display: "flex",
         alignItems: "center",
         background: "linear-gradient(to right, #3B82F6, rgba(59, 130, 246, 0.2))",
-        color: "#FFFFFF"
+        color: "#FFFFFF",
       }}>
         <div style={{
           position: "absolute",
@@ -587,7 +597,7 @@ const HomePage: React.FC = () => {
           backgroundImage: "url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=2070&auto=format&fit=crop')",
           backgroundSize: "cover",
           backgroundPosition: "center",
-          opacity: 0.2
+          opacity: 0.2,
         }} />
         <div style={{
           margin: "0 auto",
@@ -595,7 +605,7 @@ const HomePage: React.FC = () => {
           padding: "0 16px",
           maxWidth: "1280px",
           position: "relative",
-          zIndex: 10
+          zIndex: 10,
         }}>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -605,10 +615,10 @@ const HomePage: React.FC = () => {
               fontSize: "48px",
               fontWeight: "bold",
               marginBottom: "24px",
-              letterSpacing: "-0.5px"
+              letterSpacing: "-0.5px",
             }}
           >
-            Live Healthier Every Day with NutriWise
+            Sống Khỏe Mỗi Ngày với NutriWise
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -619,10 +629,10 @@ const HomePage: React.FC = () => {
               marginBottom: "32px",
               maxWidth: "720px",
               marginLeft: "auto",
-              marginRight: "auto"
+              marginRight: "auto",
             }}
           >
-            Smart nutrition solutions for a healthier lifestyle
+            Giải pháp dinh dưỡng thông minh cho lối sống lành mạnh
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -648,13 +658,13 @@ const HomePage: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                border: "none"
+                border: "none",
               }}
               onClick={handleGoogleLogin}
               onMouseOver={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #F3F4F6 0%, #FFFFFF 100%)")}
               onMouseOut={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)")}
             >
-              Get Started
+              Bắt Đầu
               <ArrowRight style={{ height: "22px", width: "22px" }} />
             </motion.button>
 
@@ -673,8 +683,9 @@ const HomePage: React.FC = () => {
                 letterSpacing: "0.5px",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)"
+                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
               }}
+              onClick={() => navigate("/about-us")}
               onMouseOver={(e) => {
                 e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
                 e.currentTarget.style.border = "2px solid #FFFFFF";
@@ -684,13 +695,12 @@ const HomePage: React.FC = () => {
                 e.currentTarget.style.border = "2px solid rgba(255, 255, 255, 0.8)";
               }}
             >
-              Learn More
+              Tìm Hiểu Thêm
             </motion.button>
           </motion.div>
         </div>
       </section>
 
-      {/* Features Section */}
       <section style={{ padding: "80px 0", backgroundColor: "#FFFFFF" }}>
         <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
           <motion.h2
@@ -703,10 +713,10 @@ const HomePage: React.FC = () => {
               fontWeight: "bold",
               textAlign: "center",
               marginBottom: "48px",
-              color: "#1F2937"
+              color: "#1F2937",
             }}
           >
-            Key Features
+            Tính Năng Nổi Bật
           </motion.h2>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }} className="sm:grid-cols-2 lg:grid-cols-4">
             {features.map((feature, index) => (
@@ -722,7 +732,7 @@ const HomePage: React.FC = () => {
                   borderRadius: "16px",
                   boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                   transition: "box-shadow 0.3s",
-                  border: "2px solid #DBEAFE"
+                  border: "2px solid #DBEAFE",
                 }}
                 onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)")}
                 onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)")}
@@ -736,7 +746,6 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Popular Ingredients Section */}
       <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
         <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
           <motion.h2
@@ -753,10 +762,10 @@ const HomePage: React.FC = () => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px"
+              gap: "8px",
             }}
           >
-            <Apple style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Popular Ingredients
+            <Apple style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Nguyên Liệu Phổ Biến
           </motion.h2>
           <div
             style={{
@@ -772,7 +781,7 @@ const HomePage: React.FC = () => {
           >
             {ingredients.slice(0, 6).map((ingredient, index) => (
               <motion.div
-                key={index}
+                key={ingredient.ingredientId}
                 initial={{ opacity: 0, x: 50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
@@ -791,7 +800,7 @@ const HomePage: React.FC = () => {
                 <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: "24px" }}>
                   <img
                     src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop"
-                    alt={ingredient.name ? `Ingredient: ${ingredient.name}` : `Ingredient ${index + 1}`}
+                    alt={ingredient.name || `Nguyên liệu ${index + 1}`}
                     style={{
                       width: "120px",
                       height: "120px",
@@ -804,10 +813,10 @@ const HomePage: React.FC = () => {
                 </div>
                 <div style={{ padding: "16px", textAlign: "center" }}>
                   <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937", marginBottom: "8px" }}>
-                    {ingredient.name || "No Name"}
+                    {ingredient.name || "Không có tên"}
                   </h3>
                   <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "12px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {ingredient.description || "No Description"}
+                    {ingredient.description || "Không có mô tả"}
                   </p>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -822,10 +831,11 @@ const HomePage: React.FC = () => {
                       transition: "background-color 0.3s",
                       width: "100%",
                     }}
+                    onClick={() => navigate(`/ingredients/${ingredient.ingredientId}`)}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                   >
-                    View Details
+                    Xem Chi Tiết
                   </motion.button>
                 </div>
               </motion.div>
@@ -848,19 +858,19 @@ const HomePage: React.FC = () => {
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "background-color 0.3s",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                 }}
+                onClick={() => navigate("/ingredients")}
                 onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                 onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
               >
-                View More <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
+                Xem Thêm <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
               </button>
             </motion.div>
           )}
         </div>
       </section>
 
-      {/* Featured Recipes Section */}
       <section style={{ padding: "80px 0", backgroundColor: "#FFFFFF" }}>
         <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
           <motion.h2
@@ -877,15 +887,15 @@ const HomePage: React.FC = () => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px"
+              gap: "8px",
             }}
           >
-            <ChefHat style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Featured Recipes
+            <ChefHat style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Công Thức Nổi Bật
           </motion.h2>
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }} className="sm:grid-cols-2 lg:grid-cols-3">
             {recipes.slice(0, 6).map((recipe, index) => (
               <motion.div
-                key={index}
+                key={recipe.recipeId}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -896,26 +906,26 @@ const HomePage: React.FC = () => {
                   boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                   overflow: "hidden",
                   transition: "box-shadow 0.3s",
-                  border: "2px solid #DBEAFE"
+                  border: "2px solid #DBEAFE",
                 }}
                 onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)")}
                 onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)")}
               >
                 <img
                   src="https://images.unsplash.com/photo-1504672281656-e4981d704151?q=80&w=2070&auto=format&fit=crop"
-                  alt={recipe.name ? `Recipe: ${recipe.name}` : `Recipe ${index + 1}`}
+                  alt={recipe.name || `Công thức ${index + 1}`}
                   style={{ width: "100%", height: "192px", objectFit: "cover" }}
                 />
                 <div style={{ padding: "24px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937" }}>{recipe.name || "No Name"}</h3>
+                    <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937" }}>{recipe.name || "Không có tên"}</h3>
                     <button
                       onClick={() => handleAddFavorite(recipe.recipeId)}
                       disabled={!user}
                       style={{
                         color: "#6B7280",
                         transition: "color 0.3s",
-                        cursor: user ? "pointer" : "not-allowed"
+                        cursor: user ? "pointer" : "not-allowed",
                       }}
                       onMouseOver={(e) => (e.currentTarget.style.color = user ? "#3B82F6" : "#6B7280")}
                       onMouseOut={(e) => (e.currentTarget.style.color = "#6B7280")}
@@ -923,7 +933,7 @@ const HomePage: React.FC = () => {
                       <Heart style={{ height: "20px", width: "20px" }} />
                     </button>
                   </div>
-                  <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "16px" }}>{recipe.description || "No Description"}</p>
+                  <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "16px" }}>{recipe.description || "Không có mô tả"}</p>
                   <button
                     style={{
                       width: "100%",
@@ -933,12 +943,13 @@ const HomePage: React.FC = () => {
                       borderRadius: "8px",
                       fontWeight: "500",
                       cursor: "pointer",
-                      transition: "background-color 0.3s"
+                      transition: "background-color 0.3s",
                     }}
+                    onClick={() => navigate(`/recipes/${recipe.recipeId}`)}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                   >
-                    View Details
+                    Xem Chi Tiết
                   </button>
                 </div>
               </motion.div>
@@ -961,19 +972,19 @@ const HomePage: React.FC = () => {
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "background-color 0.3s",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                 }}
+                onClick={() => navigate("/recipes")}
                 onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                 onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
               >
-                View More <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
+                Xem Thêm <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
               </button>
             </motion.div>
           )}
         </div>
       </section>
 
-      {/* Health Information Section */}
       <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
         <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
           <motion.h2
@@ -990,10 +1001,10 @@ const HomePage: React.FC = () => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px"
+              gap: "8px",
             }}
           >
-            <HeartPulse style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Health Information
+            <HeartPulse style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Thông Tin Sức Khỏe
           </motion.h2>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1007,31 +1018,31 @@ const HomePage: React.FC = () => {
               borderRadius: "16px",
               boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               padding: "24px",
-              border: "2px solid #DBEAFE"
+              border: "2px solid #DBEAFE",
             }}
           >
             {healthProfile ? (
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }} className="sm:grid-cols-2">
                 <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Full Name</p>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Họ Tên</p>
                   <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.fullName || "N/A"}</p>
                 </div>
                 <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Gender</p>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Giới Tính</p>
                   <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.gender || "N/A"}</p>
                 </div>
                 <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Height</p>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Chiều Cao</p>
                   <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.height || "N/A"} cm</p>
                 </div>
                 <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Weight</p>
+                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Cân Nặng</p>
                   <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.weight || "N/A"} kg</p>
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: "center" }}>
-                <p style={{ color: "#6B7280", marginBottom: "16px" }}>Please login to view your health information.</p>
+                <p style={{ color: "#6B7280", marginBottom: "16px" }}>Vui lòng đăng nhập để xem thông tin sức khỏe của bạn.</p>
                 <button
                   style={{
                     padding: "12px 24px",
@@ -1041,21 +1052,19 @@ const HomePage: React.FC = () => {
                     fontWeight: "500",
                     cursor: "pointer",
                     transition: "background-color 0.3s",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                   }}
                   onClick={handleGoogleLogin}
                   onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                   onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                 >
-                  Login Now
+                  Đăng Nhập Ngay
                 </button>
               </div>
             )}
           </motion.div>
         </div>
       </section>
-
-      {/* Footer */}
       <Footer />
     </Box>
   );
