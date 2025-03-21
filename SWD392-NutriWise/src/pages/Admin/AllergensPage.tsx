@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Button, TableSortLabel } from "@mui/material";
 import { Delete } from "@mui/icons-material";
@@ -13,6 +13,7 @@ import AllergenModal from "../../components/Admin/AllergenModal";
 
 import { Toast } from "../../components/ToastComponent";
 import { CustomPagination } from "../../components/PagingComponent";
+import { Search } from "../../components/SearchComponent";
 
 const AllergensPage: React.FC = () => {
   const [allergens, setAllergens] = useState<AllergenDTO[]>([]);
@@ -29,6 +30,7 @@ const AllergensPage: React.FC = () => {
   const [totalCount, setTotalCount] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
+  const [query, setQuery] = useState<string>('');
 
   const setPaging = (currentPage: number, totalCount: number, pageSize: number) => {
     setTotalCount(totalCount);
@@ -109,6 +111,19 @@ const AllergensPage: React.FC = () => {
     setOrderBy(property);
   }
 
+  const handleSearch = async (value: string) => {
+    try {
+      if (value !== '') {
+        const response = await apiClient.get(`/Allergen/allergen-search?name=${value}`);
+        setAllergens(response.data);
+      } else {
+        fetchAllergens()
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <Layout title="Quản lý chất gây dị ứng" subtitle="Xem và quản lý các chất gây dị ứng">
       <Toast
@@ -117,96 +132,106 @@ const AllergensPage: React.FC = () => {
         open={openToast}
         statusCode={statusCode}
       ></Toast>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Quản lý chất gây dị ứng
-        </Typography>
-        {/* <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-          Xem, thêm, sửa, xóa các chất gây dị ứng trong hệ thống.
-        </Typography> */}
-        <Button
-          size="large"
-          variant="contained"
-          onClick={() => handleOpen(initialState, "create")}>
-          Thêm thành phần dị ứng
-        </Button>
-        {loading ? (
-          <VStack colorPalette="cyan">
-            <Spinner color="colorPalette.600" borderWidth="5px" size="lg" />
-            <Text color="colorPalette.600">Loading...</Text>
-          </VStack>
-        ) : (
-          <Paper sx={{ mt: 2 }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <TableSortLabel
-                      active={orderBy === "allergenId"}
-                      direction={order}
-                      onClick={() => handleSort("allergenId")}>
-                      ID
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
-                    <TableSortLabel
-                      active={orderBy === "name"}
-                      direction={order}
-                      onClick={() => handleSort("name")}>
-                      Tên
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell>Mô tả</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {allergens.map((allergen) => (
-                  <TableRow key={allergen.allergenId}>
-                    <TableCell>{allergen.allergenId}</TableCell>
-                    <TableCell>{allergen.name}</TableCell>
-                    <TableCell>{allergen.description}</TableCell>
-                    <TableCell>
-                      <Box display={"flex"} gap={3}>
-                        <Button color="info"
-                          size="small"
-                          variant="outlined"
-                          onClick={() => handleOpen(allergen, "update")}
-                        >
-                          Sửa
-                        </Button>
-
-                        <Button color="error"
-                          variant="contained"
-                          size="small"
-                          startIcon={<Delete />}
-                          loading={loadingId === allergen.allergenId}
-                          onClick={() => onDeleteAllergen(allergen.allergenId!)}
-                        >
-                          Xóa
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <AllergenModal
-                  open={open}
-                  handleClose={handleClose}
-                  allergen={selectedAllergen!}
-                  setAllergens={setAllergens}
-                  action={modalAction}
-                  title={modalAction === 'create' ? "Thêm thành phần dị ứng" : "Cập nhật thành phần dị ứng"} />
-              </TableBody>
-            </Table>
-            <CustomPagination
-              count={totalCount}
-              pageSize={pageSize}
-              defaultPage={currentPage}
-              onPageChange={(page) => setCurrentPage(page)}
+      {loading ? (
+        <VStack colorPalette="cyan">
+          <Spinner color="colorPalette.600" borderWidth="5px" size="lg" />
+          <Text color="colorPalette.600">Loading...</Text>
+        </VStack>
+      ) : (
+        <Box sx={{ p: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+            <Button
+              size="large"
+              variant="contained"
+              onClick={() => handleOpen(initialState, "create")}>
+              Thêm thành phần dị ứng
+            </Button>
+            <Search
+              query={query}
+              handleSearchChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                console.log(e.target.value)
+                setQuery(e.target.value)
+                handleSearch(e.target.value)
+              }}
             />
-          </Paper>
-        )}
-      </Box>
+          </Box>
+          {allergens.length > 0 ? (
+            <Paper sx={{ mt: 2 }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === "allergenId"}
+                        direction={order}
+                        onClick={() => handleSort("allergenId")}>
+                        ID
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === "name"}
+                        direction={order}
+                        onClick={() => handleSort("name")}>
+                        Tên
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>Mô tả</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {allergens.map((allergen) => (
+                    <TableRow key={allergen.allergenId}>
+                      <TableCell>{allergen.allergenId}</TableCell>
+                      <TableCell>{allergen.name}</TableCell>
+                      <TableCell>{allergen.description}</TableCell>
+                      <TableCell>
+                        <Box display={"flex"} gap={3}>
+                          <Button color="info"
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleOpen(allergen, "update")}
+                          >
+                            Sửa
+                          </Button>
+
+                          <Button color="error"
+                            variant="contained"
+                            size="small"
+                            startIcon={<Delete />}
+                            loading={loadingId === allergen.allergenId}
+                            onClick={() => onDeleteAllergen(allergen.allergenId!)}
+                          >
+                            Xóa
+                          </Button>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <AllergenModal
+                    open={open}
+                    handleClose={handleClose}
+                    allergen={selectedAllergen!}
+                    setAllergens={setAllergens}
+                    action={modalAction}
+                    title={modalAction === 'create' ? "Thêm thành phần dị ứng" : "Cập nhật thành phần dị ứng"} />
+                </TableBody>
+              </Table>
+              <CustomPagination
+                count={totalCount}
+                pageSize={pageSize}
+                defaultPage={currentPage}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            </Paper>
+          ) : (
+            <Box mt={2}>
+              <Text fontSize={"2xl"} color={"InfoText"}>Not found</Text>
+            </Box>
+          )}
+        </Box>
+      )}
     </Layout>
   );
 };
