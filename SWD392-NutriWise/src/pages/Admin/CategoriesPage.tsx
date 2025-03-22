@@ -13,6 +13,7 @@ import CategoryModal from "../../components/Admin/CategoryModal";
 import { Toast } from "../../components/ToastComponent";
 import { CustomPagination } from "../../components/PagingComponent";
 import { Search } from "../../components/SearchComponent";
+import FuzzyText from "../../lib/FuzzyText/FuzzyText";
 
 const CategoriesPage: React.FC = () => {
   const [categories, setCategories] = useState<CategoryDTO[]>([]);
@@ -157,7 +158,7 @@ const CategoriesPage: React.FC = () => {
                   }}
                 />
               </Box>
-              { categories.length > 0 ? (
+              {categories.length > 0 ? (
                 <Paper sx={{ mt: 2 }}>
                   <Table>
                     <TableHead>
@@ -229,8 +230,11 @@ const CategoriesPage: React.FC = () => {
                   />
                 </Paper>
               ) : (
-                <Box mt={2}>
-                  <Text fontSize={"2xl"} color={"InfoText"}>Not found</Text>
+                <Box mt={2} display={"flex"} justifyContent={"center"}>
+                  <FuzzyText
+                    baseIntensity={0.2}
+                    color="#1a237e"
+                  >Not found</FuzzyText>
                 </Box>
               )}
             </Box>

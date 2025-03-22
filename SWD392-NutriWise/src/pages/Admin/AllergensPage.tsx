@@ -14,6 +14,7 @@ import AllergenModal from "../../components/Admin/AllergenModal";
 import { Toast } from "../../components/ToastComponent";
 import { CustomPagination } from "../../components/PagingComponent";
 import { Search } from "../../components/SearchComponent";
+import FuzzyText from "../../lib/FuzzyText/FuzzyText";
 
 const AllergensPage: React.FC = () => {
   const [allergens, setAllergens] = useState<AllergenDTO[]>([]);
@@ -226,8 +227,11 @@ const AllergensPage: React.FC = () => {
               />
             </Paper>
           ) : (
-            <Box mt={2}>
-              <Text fontSize={"2xl"} color={"InfoText"}>Not found</Text>
+            <Box mt={2} display={"flex"} justifyContent={"center"}>
+              <FuzzyText
+                baseIntensity={0.2}
+                color="#1a237e"
+              >Not found</FuzzyText>
             </Box>
           )}
         </Box>
