@@ -27,6 +27,7 @@ import AuthModal from "../components/Home/AuthModal";
 import { googleCallback, completeProfile } from "../api/accountApi";
 import { CompleteProfileRequest, GoogleCallbackResponse } from "../api/accountApi";
 import { auth } from "../firebase-config";
+import AIChatPage from "../pages/AIChatPage";
 
 interface AppUser {
   email: string;
@@ -159,6 +160,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/nutriwise/allergens" element={<AllergensPage />} />
         <Route path="/nutriwise/categories" element={<CategoriesPage />} />
         <Route path="/nutriwise/chats" element={<ChatsPage />} />
+        <Route path="/nutriwise/chat" element={<AIChatPage />} />
         <Route path="/nutriwise/favorite-recipes" element={<FavoriteRecipesPage />} />
         <Route path="/nutriwise/health-goals" element={<HealthGoalsPage />} />
         <Route path="/nutriwise/health-metrics" element={<HealthMetricsPage />} />
