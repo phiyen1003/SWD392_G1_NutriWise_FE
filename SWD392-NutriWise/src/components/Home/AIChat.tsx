@@ -246,7 +246,7 @@
 // Note: Ensure you have set VITE_GOOGLE_GEMINI_API_KEY in your .env file
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Send } from "lucide-react";
+import { ExternalLink, Send } from "lucide-react";
 import axios from "axios";
 
 interface Message {
@@ -366,9 +366,19 @@ const AIChat: React.FC = () => {
           fontSize: "16px",
           fontWeight: "600",
           borderBottom: "2px solid #DBEAFE",
+          display: 'flex',
+          gap: '50px'
         }}
       >
+          
         NutriWise AI Chat (Google Gemini)
+        <a
+        href="/nutriwise/chats"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "#FFFFFF" }}>
+          <ExternalLink size={20} />
+        </a>
       </div>
 
       <div
