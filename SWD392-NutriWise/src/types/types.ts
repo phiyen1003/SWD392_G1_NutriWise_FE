@@ -421,3 +421,9 @@ export interface UpdateRecipeHealthGoalDTO {
   recipeId: number;
   healthGoalId: number;
 }
+
+export interface ChatSessionDTO {
+  chatSessionId: number,
+  title: string,
+  lastUpdatedDate: string,
+}

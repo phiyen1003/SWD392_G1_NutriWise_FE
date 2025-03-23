@@ -1,20 +1,60 @@
 import { ChatSidebar } from "../components/Chatbot/ChatSidebarComponent";
 import { Chat } from "../components/Chatbot/ChatComponent";
 import { Button, Stack } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { ProfileButton } from "../components/Chatbot/ProfileButtonComponent";
 import { Link, useParams } from "react-router-dom";
+import { ChatSessionDTO } from "../types/types";
+import apiClient from "../api/apiClient";
 
 export default function AIChatPage() {
+    const userId = localStorage.getItem('userId');
+    // const userId = 1;
     const { sessionId } = useParams();
+    
+    const [sessions, setSessions] = useState<ChatSessionDTO[]>([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(userId ? true : false);
+    const [pageNumber, setPageNumber] = useState<number>(1);
+    const [hasMore, setHasMore] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(false);
+    
     console.log(sessionId);
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-    // const userId = localStorage.getItem('userId');
-    const userId = 1;
-
     console.log('selected chat', sessionId)
+
+    const fetchSessions = useCallback(async () => {
+        if (!hasMore || loading) return;
+
+        setLoading(true);
+        try {
+            const response = await apiClient.get(`/Chat/user/${userId}?PageNumber=${pageNumber}&PageSize=${15}&OrderBy=lastUpdatedDate desc`);
+            const newSessions = response.data;
+            console.log(response.data);
+
+            if (newSessions.length === 0) {
+                setHasMore(false);
+            } else {
+                setSessions([...sessions, ...newSessions]);
+            }
+        } catch (err) {
+
+        } finally {
+            setLoading(false);
+        }
+    }, [pageNumber]);
+
+    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        console.log('scroll start');
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollTop + clientHeight >= scrollHeight - 10 && hasMore && !loading) {
+            console.log('cham day');
+            setPageNumber(prev => prev + 1);
+        }
+    },[hasMore, loading]);
+
+    useEffect(() => {
+        fetchSessions();
+    }, [fetchSessions, pageNumber])
 
     return (
         <>
@@ -24,7 +64,10 @@ export default function AIChatPage() {
                         <ChatSidebar
                             isOpen={isSidebarOpen}
                             setIsOpen={setIsSidebarOpen}
-                            userId={userId}
+                            loading={loading}
+                            hasMore={hasMore}
+                            sessions={sessions}
+                            handleScroll={handleScroll}
                         />
                         <ProfileButton />
                     </>
@@ -44,7 +87,7 @@ export default function AIChatPage() {
                     ml={isSidebarOpen ? "250px" : "0px"}
                     transition="margin 0.3s ease-in-out"
                 >
-                    <Chat sessionId={parseInt(sessionId!)} />
+                    <Chat key={sessionId} setSessions={setSessions} />
                 </Stack>
             </Stack>
         </>
