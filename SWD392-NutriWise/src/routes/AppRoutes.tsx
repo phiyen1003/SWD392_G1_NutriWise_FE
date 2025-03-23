@@ -10,7 +10,6 @@ import SettingsPage from "../pages/Admin/SettingsPage";
 import RecipePage from "../pages/Admin/RecipesPage";
 import AllergensPage from "../pages/Admin/AllergensPage";
 import CategoriesPage from "../pages/Admin/CategoriesPage";
-import ChatsPage from "../pages/Admin/ChatsPage";
 import FavoriteRecipesPage from "../pages/Admin/FavoriteRecipesPage";
 import HealthGoalsPage from "../pages/Admin/HealthGoalsPage";
 import HealthMetricsPage from "../pages/Admin/HealthMetricsPage";
@@ -159,8 +158,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/nutriwise/settings" element={<SettingsPage />} />
         <Route path="/nutriwise/allergens" element={<AllergensPage />} />
         <Route path="/nutriwise/categories" element={<CategoriesPage />} />
-        <Route path="/nutriwise/chats" element={<ChatsPage />} />
-        <Route path="/nutriwise/chat" element={<AIChatPage />} />
+        <Route path="/nutriwise/chats/:sessionId?" element={<AIChatPage />} />
         <Route path="/nutriwise/favorite-recipes" element={<FavoriteRecipesPage />} />
         <Route path="/nutriwise/health-goals" element={<HealthGoalsPage />} />
         <Route path="/nutriwise/health-metrics" element={<HealthMetricsPage />} />

@@ -1,15 +1,40 @@
-import { useState } from "react";
-import { Button, VStack, Collapsible, Stack, Text } from "@chakra-ui/react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Button, VStack, Collapsible, Stack, Text, Spacer } from "@chakra-ui/react";
 import AutoAwesomeMosaicIcon from '@mui/icons-material/AutoAwesomeMosaic';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
-import { HeartPulse } from "lucide-react";
+import { HeartPulse, Trash } from "lucide-react";
+import apiClient from "../../api/apiClient";
+import { useNavigate } from "react-router-dom";
+import { Box, Divider, Modal } from "@mui/material";
 
 interface ChatSidebarProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
+    userId: number,
 }
 
-export const ChatSidebar = ({isOpen, setIsOpen} : ChatSidebarProps) => {
+interface ChatSession {
+    chatSessionId: number,
+    title: string,
+    lastUpdatedDate: string,
+}
+
+export const ChatSidebar = ({ isOpen, setIsOpen, userId }: ChatSidebarProps) => {
+    const navigate = useNavigate();
+
+    const [sessions, setSessions] = useState<ChatSession[]>([]);
+    const [pageNumber, setPageNumber] = useState<number>(1);
+    const [open, setOpen] = useState<boolean>(false);
+
+    const fetchSessions = useCallback(async () => {
+        const response = await apiClient.get(`/Chat/user/${userId}?PageNumber=${pageNumber}&PageSize=${15}&OrderBy=lastUpdatedDate`);
+        setSessions(response.data)
+    }, [userId, pageNumber]);
+
+    useEffect(() => {
+        fetchSessions();
+    }, [fetchSessions])
+
     return (
         <Collapsible.Root
             position={"absolute"}
@@ -34,7 +59,7 @@ export const ChatSidebar = ({isOpen, setIsOpen} : ChatSidebarProps) => {
                     shadow="md"
                 >
                     <Stack direction="column" gap={10}>
-                        <Stack direction="row" justifyContent="flex-end">
+                        <Stack direction="row" justifyContent="flex-end" onClick={() => navigate(`/`)}>
                             <Button variant={"ghost"} color="blue" size={"lg"}>
                                 <HeartPulse />
                                 NutriWise
@@ -43,15 +68,89 @@ export const ChatSidebar = ({isOpen, setIsOpen} : ChatSidebarProps) => {
                                 <SearchOutlinedIcon />
                             </Button>
                         </Stack>
-                        <Button variant="ghost">Tạo đoạn chat mới</Button>
+                        <Button variant="ghost" onClick={() => navigate(`/nutriwise/chats`)}>Tạo đoạn chat mới</Button>
                         <Stack>
-                            <Button variant="ghost">Chat 1</Button>
-                            <Button variant="ghost">Chat 2</Button>
-                            <Button variant="ghost">Chat 3</Button>
+                            {sessions.map((session) => (
+                                <>
+                                    <Button key={session.chatSessionId} variant="ghost" onClick={() => navigate(`/nutriwise/chats/${session.chatSessionId}`)}>
+                                        <Text color={"blackAlpha.800"}>{session.title}</Text>
+                                        <Spacer />
+                                        <Trash color="red" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpen(true);
+                                        }} />
+                                    </Button>
+                                    <DeleteModal
+                                        open={open}
+                                        title={session.title}
+                                        handleClose={() => setOpen(!open)}
+                                        sessionId={session.chatSessionId} />
+                                </>
+                            ))}
                         </Stack>
                     </Stack>
                 </VStack>
             </Collapsible.Content>
         </Collapsible.Root>
     );
+}
+
+interface DeleteModalProps {
+    open: boolean,
+    title: string,
+    sessionId: number,
+    handleClose: () => void
+}
+const DeleteModal = ({ open, title, sessionId, handleClose }: DeleteModalProps) => {
+    const navigate = useNavigate();
+
+    const onDelete = async () => {
+        try {
+            const response = await apiClient.delete(`/Chat/session/${sessionId}`);
+            if (response.status === 200) {
+                navigate(`/nutriwise/chats`);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    return (
+        <Modal
+            open={open}
+            onClose={handleClose}
+            aria-labelledby="modal-modal-title"
+            aria-describedby="modal-modal-description">
+            <Box
+                sx={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)", // Centers the modal
+                    bgcolor: "white",
+                    boxShadow: 24,
+                    p: 3, // Padding inside the modal
+                    minWidth: 400, // Ensures the modal is wide enough for the form
+                    maxWidth: 600, // Prevents it from being too large
+                    borderRadius: 2, // Adds rounded corners
+                }}
+            >
+                <Text fontSize={"large"} fontWeight={"bold"}>
+                    Xóa đoạn chat?
+                </Text>
+                <Divider />
+                <Stack marginTop={15}>
+                    <form onSubmit={onDelete}>
+                        <Text>
+                            Hành động này sẽ xóa {title}.
+                        </Text>
+                        <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
+                            <Button variant="surface" onClick={handleClose}>Hủy</Button>
+                            <Button type="submit" variant="solid" colorPalette={"red"}>Xóa</Button>
+                        </Box>
+                    </form>
+                </Stack>
+            </Box>
+        </Modal>
+    )
 }

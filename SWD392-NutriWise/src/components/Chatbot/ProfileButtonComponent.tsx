@@ -1,6 +1,6 @@
 import { Avatar, Button, Menu, Portal, Stack, Box } from "@chakra-ui/react";
 
-export const ProfileButton: React.FC = () => {
+export const ProfileButton = () => {
     return (
         <Stack position="absolute" top={4} right={4}>
             <Menu.Root>
