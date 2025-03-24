@@ -12,6 +12,8 @@ import {
   CircularProgress,
   Box,
 } from "@mui/material";
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import Layout from "../../components/Admin/Layout";
 import {
   getAllMeals,
@@ -21,6 +23,8 @@ import {
 } from "../../api/mealApi";
 import { getRecipeImagesByRecipeId } from "../../api/recipeImageApi";
 import { MealDTO, UpdateMealDTO, RecipeImageDTO } from "../../types/types";
+import { Stack } from "@chakra-ui/react";
+import apiClient from "../../api/apiClient";
 
 const MealsPage: React.FC = () => {
   const [meals, setMeals] = useState<MealDTO[]>([]);
@@ -37,6 +41,17 @@ const MealsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [recipeImages, setRecipeImages] = useState<{ [key: number]: RecipeImageDTO[] }>({});
   const [customImageUrls, setCustomImageUrls] = useState<{ [key: number]: string }>({});
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
+
+  const setPaging = (currentPage: number, totalCount: number, pageSize: number, totalPages: number) => {
+    setTotalCount(totalCount);
+    setCurrentPage(currentPage);
+    setPageSize(pageSize);
+    setTotalPages(totalPages);
+  }
 
   useEffect(() => {
     const savedCustomImageUrls = localStorage.getItem("customImageUrls");
@@ -44,15 +59,17 @@ const MealsPage: React.FC = () => {
       setCustomImageUrls(JSON.parse(savedCustomImageUrls));
     }
     fetchMeals();
-  }, []);
+  }, [currentPage]);
 
   const fetchMeals = async () => {
     try {
       setLoading(true);
-      const mealsData = await getAllMeals();
-      setMeals(mealsData);
+      const mealsData = await apiClient.get(`/Meal/all-meals?PageNumber=${currentPage}&PageSize=${3}`);
+      const paginationHeader = JSON.parse(mealsData.headers["x-pagination"]);
+      setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize, paginationHeader.TotalPages);
+      setMeals(mealsData.data);
 
-      const imagePromises = mealsData.map(async (meal) => {
+      const imagePromises = mealsData.data.map(async (meal: MealDTO) => {
         const images = await getRecipeImagesByRecipeId(meal.recipeId);
         return { recipeId: meal.recipeId, images };
       });
@@ -248,69 +265,103 @@ const MealsPage: React.FC = () => {
             {meals.length === 0 ? (
               <Typography>Không có bữa ăn nào để hiển thị.</Typography>
             ) : (
-              meals.map((meal) => (
-                <Grid item xs={12} sm={6} md={4} key={meal.mealId}>
-                  <Card
+              <>
+                <Stack direction={'row'} flex={1}>
+                  <Button
                     sx={{
-                      borderRadius: "16px",
-                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
-                      minHeight: "450px", // Chiều cao tối thiểu cho card
-                      display: "flex",
-                      flexDirection: "column",
+                      position: "relative",
+                      padding: '4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '20px',
+                      minWidth: '60px',
+                      minHeight: '60px',
+                      alignSelf: 'center'
                     }}
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage <= 1}
                   >
-                    <CardMedia
-                      component="img"
-                      height="300" // Chiều cao cố định cho hình ảnh
-                      width="100%" // Chiều rộng tự động theo card
-                      image={getImageUrl(meal.recipeId)}
-                      alt={`Meal ${meal.mealId}`}
-                      sx={{
-                        objectFit: "cover", // Đảm bảo hình ảnh vừa khung
-                        display: "block", // Xóa khoảng trống dư thừa
-                      }}
-                    />
-                    <CardContent
-                      sx={{
-                        flexGrow: 1, // Đảm bảo nội dung lấp đầy không gian còn lại
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        padding: "16px",
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, color: "#424242" }}>
-                          Meal ID: {meal.mealId}
-                        </Typography>
-                        <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
-                          Ngày: {meal.mealDate}
-                        </Typography>
-                        <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                          Giờ: {meal.mealTime}
-                        </Typography>
-                        <Chip label={`Recipe ID: ${meal.recipeId}`} color="primary" size="small" />
-                      </Box>
-                      <Grid container spacing={1} sx={{ mt: 2 }}>
-                        <Grid item>
-                          <Button onClick={() => editMeal(meal)} color="primary" variant="outlined">
-                            Chỉnh sửa
-                          </Button>
-                        </Grid>
-                        <Grid item>
-                          <Button
-                            onClick={() => deleteMealHandler(meal.mealId)}
-                            color="secondary"
-                            variant="outlined"
-                          >
-                            Xóa
-                          </Button>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))
+                    <ArrowBackIosNewIcon fontSize="small" />
+                  </Button>
+                  {meals.map((meal) => (
+                    <Grid item xs={12} sm={6} md={4} key={meal.mealId}>
+                      <Card
+                        sx={{
+                          borderRadius: "16px",
+                          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+                          minHeight: "450px", // Chiều cao tối thiểu cho card
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <CardMedia
+                          component="img"
+                          height="300" // Chiều cao cố định cho hình ảnh
+                          width="100%" // Chiều rộng tự động theo card
+                          image={getImageUrl(meal.recipeId)}
+                          alt={`Meal ${meal.mealId}`}
+                          sx={{
+                            objectFit: "cover", // Đảm bảo hình ảnh vừa khung
+                            display: "block", // Xóa khoảng trống dư thừa
+                          }}
+                        />
+                        <CardContent
+                          sx={{
+                            flexGrow: 1, // Đảm bảo nội dung lấp đầy không gian còn lại
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            padding: "16px",
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, color: "#424242" }}>
+                              Meal ID: {meal.mealId}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
+                              Ngày: {meal.mealDate}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
+                              Giờ: {meal.mealTime}
+                            </Typography>
+                            <Chip label={`Recipe ID: ${meal.recipeId}`} color="primary" size="small" />
+                          </Box>
+                          <Grid container spacing={1} sx={{ mt: 2 }}>
+                            <Grid item>
+                              <Button onClick={() => editMeal(meal)} color="primary" variant="outlined">
+                                Chỉnh sửa
+                              </Button>
+                            </Grid>
+                            <Grid item>
+                              <Button
+                                onClick={() => deleteMealHandler(meal.mealId)}
+                                color="secondary"
+                                variant="outlined"
+                              >
+                                Xóa
+                              </Button>
+                            </Grid>
+                          </Grid>
+                        </CardContent>
+                      </Card>
+                    </Grid>))}
+                  <Button
+                    sx={{
+                      position: "relative",
+                      padding: '4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '20px',
+                      minWidth: '60px',
+                      minHeight: '60px',
+                      alignSelf: 'center'
+                    }}
+
+                    onClick={() => setCurrentPage(() => currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  >
+                    <ArrowForwardIosIcon fontSize="small" />
+                  </Button>
+                </Stack>
+              </>
             )}
           </Grid>
         )}

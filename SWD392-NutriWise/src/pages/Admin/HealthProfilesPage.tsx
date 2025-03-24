@@ -16,6 +16,8 @@ import FuzzyText from "../../lib/FuzzyText/FuzzyText";
 const HealthProfilesPage: React.FC = () => {
   const [profiles, setProfiles] = useState<HealthProfileDTO[]>([]);
   const [selectedHealthProfile, setSelectedHealthProfile] = useState<HealthProfileDTO>();
+  const [dataFetched, setDataFetched] = useState<boolean>(false);
+
 
   const [open, setOpen] = useState<boolean>(false);
 
@@ -62,6 +64,7 @@ const HealthProfilesPage: React.FC = () => {
     } catch (error) {
       onToast(500, true, 'Có lỗi xảy ra trong quá trình xử lý');
     } finally {
+      setDataFetched(true);
       setLoading(false);
     }
   }, [orderBy, order, currentPage]);
@@ -244,17 +247,15 @@ const HealthProfilesPage: React.FC = () => {
                 onPageChange={(page) => setCurrentPage(page)}
               />
             </Paper>
-          ) : (
-            <Box mt={2} display={"flex"} justifyContent={"center"}>
-              <FuzzyText
-               baseIntensity={0.2} 
-               color="#1a237e"
-              >Not found</FuzzyText>
+          ) : dataFetched ? (
+            <Box mt={2} display="flex" justifyContent="center">
+              <FuzzyText baseIntensity={0.2} color="#1a237e">
+                Not found
+              </FuzzyText>
             </Box>
-          )}
+          ) : (<Text>Hiện tại chưa có thành phần dị ứng nào</Text>)}
         </Box>
-      )
-      }
+      )}
     </Layout >
   );
 };

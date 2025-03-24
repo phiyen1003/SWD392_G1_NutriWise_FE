@@ -23,6 +23,8 @@ import {
   deleteIngredient,
 } from "../../api/ingredientApi";
 import { IngredientDTO, CreateIngredientDTO, UpdateIngredientDTO } from "../../types/types";
+import apiClient from "../../api/apiClient";
+import { CustomPagination } from "../../components/PagingComponent";
 
 const IngredientsPage: React.FC = () => {
   const [ingredients, setIngredients] = useState<IngredientDTO[]>([]);
@@ -34,16 +36,29 @@ const IngredientsPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentIngredientId, setCurrentIngredientId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [orderBy, setOrderBy] = useState<keyof IngredientDTO>("ingredientId");
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(0);
+
+  const setPaging = (currentPage: number, totalCount: number, pageSize: number) => {
+    setTotalCount(totalCount);
+    setCurrentPage(currentPage);
+    setPageSize(pageSize);
+  }
 
   // Load danh sách nguyên liệu khi component mount
   useEffect(() => {
     fetchIngredients();
-  }, []);
+  }, [currentPage]);
 
   const fetchIngredients = async () => {
     try {
-      const data = await getAllIngredients();
-      setIngredients(data);
+      const response = await apiClient.get(`/Ingredient/all-ingredients?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}`)
+      const paginationHeader = JSON.parse(response.headers["x-pagination"]);
+      setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
+      setIngredients(response.data);
     } catch (err) {
       setError("Đã xảy ra lỗi khi tải danh sách nguyên liệu");
       console.error(err);
@@ -189,50 +204,58 @@ const IngredientsPage: React.FC = () => {
           {error ? (
             <Typography color="error">{error}</Typography>
           ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Tên</TableCell>
-                  <TableCell>Mô tả</TableCell>
-                  <TableCell>Là chất gây dị ứng</TableCell>
-                  <TableCell>Hành động</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {ingredients.length === 0 ? (
+            <>
+              <Table>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={5}>Không có nguyên liệu nào để hiển thị.</TableCell>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Tên</TableCell>
+                    <TableCell>Mô tả</TableCell>
+                    <TableCell>Là chất gây dị ứng</TableCell>
+                    <TableCell>Hành động</TableCell>
                   </TableRow>
-                ) : (
-                  ingredients.map((ingredient) => (
-                    <TableRow key={ingredient.ingredientId}>
-                      <TableCell>{ingredient.ingredientId}</TableCell>
-                      <TableCell>{ingredient.name}</TableCell>
-                      <TableCell>{ingredient.description || "Không có mô tả"}</TableCell>
-                      <TableCell>{ingredient.isAllergen ? "Có" : "Không"}</TableCell>
-                      <TableCell>
-                        <Button
-                          onClick={() => editIngredient(ingredient)}
-                          color="primary"
-                          variant="outlined"
-                          sx={{ mr: 1 }}
-                        >
-                          Chỉnh sửa
-                        </Button>
-                        <Button
-                          onClick={() => deleteIngredientHandler(ingredient.ingredientId)}
-                          color="secondary"
-                          variant="outlined"
-                        >
-                          Xóa
-                        </Button>
-                      </TableCell>
+                </TableHead>
+                <TableBody>
+                  {ingredients.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5}>Không có nguyên liệu nào để hiển thị.</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    ingredients.map((ingredient) => (
+                      <TableRow key={ingredient.ingredientId}>
+                        <TableCell>{ingredient.ingredientId}</TableCell>
+                        <TableCell>{ingredient.name}</TableCell>
+                        <TableCell>{ingredient.description || "Không có mô tả"}</TableCell>
+                        <TableCell>{ingredient.isAllergen ? "Có" : "Không"}</TableCell>
+                        <TableCell>
+                          <Button
+                            onClick={() => editIngredient(ingredient)}
+                            color="primary"
+                            variant="outlined"
+                            sx={{ mr: 1 }}
+                          >
+                            Chỉnh sửa
+                          </Button>
+                          <Button
+                            onClick={() => deleteIngredientHandler(ingredient.ingredientId)}
+                            color="secondary"
+                            variant="outlined"
+                          >
+                            Xóa
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <CustomPagination
+                count={totalCount}
+                pageSize={pageSize}
+                defaultPage={currentPage}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            </>
           )}
         </Paper>
       </Box>
