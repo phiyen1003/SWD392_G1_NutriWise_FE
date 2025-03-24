@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "https://swd392nutriwisewebapp-acgge4e8a2cubkh8.centralus-01.azurewebsites.net/api",
+  baseURL: "https://localhost:7166/api",
   headers: {
     "Content-Type": "application/json",
   },

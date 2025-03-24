@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { CSVLink } from "react-csv";
 
-import { Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Button, TableSortLabel } from "@mui/material";
+import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Button, TableSortLabel } from "@mui/material";
 import { Delete } from "@mui/icons-material";
 import { Spinner, VStack, Text } from "@chakra-ui/react";
 
@@ -32,6 +33,7 @@ const AllergensPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [query, setQuery] = useState<string>('');
+  const [dataFetched, setDataFetched] = useState<boolean>(false);
 
   const setPaging = (currentPage: number, totalCount: number, pageSize: number) => {
     setTotalCount(totalCount);
@@ -44,12 +46,13 @@ const AllergensPage: React.FC = () => {
     try {
       const response = await apiClient.get(`/Allergen/all-allergens?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}`);
       const paginationHeader = JSON.parse(response.headers["x-pagination"]);
-      console.log(paginationHeader);
       setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
       setAllergens(response.data);
+      setLoading(() => false);
     } catch (error) {
       onToast(500, true, 'Có lỗi xảy ra trong quá trình xử lý');
     } finally {
+      setDataFetched(true);
       setLoading(false);
     }
   }, [orderBy, order, currentPage]);
@@ -140,6 +143,13 @@ const AllergensPage: React.FC = () => {
         </VStack>
       ) : (
         <Box sx={{ p: 3 }}>
+          <Button variant="contained" color="success">
+            <CSVLink 
+            data={allergens}
+            filename="allergens_nutriwise">
+              Export to CSV
+            </CSVLink>
+          </Button>
           <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
             <Button
               size="large"
@@ -226,14 +236,13 @@ const AllergensPage: React.FC = () => {
                 onPageChange={(page) => setCurrentPage(page)}
               />
             </Paper>
-          ) : (
-            <Box mt={2} display={"flex"} justifyContent={"center"}>
-              <FuzzyText
-                baseIntensity={0.2}
-                color="#1a237e"
-              >Not found</FuzzyText>
+          ) : dataFetched ? (
+            <Box mt={2} display="flex" justifyContent="center">
+              <FuzzyText baseIntensity={0.2} color="#1a237e">
+                Not found
+              </FuzzyText>
             </Box>
-          )}
+          ) : (<Text>Hiện tại chưa có thành phần dị ứng nào</Text>)}
         </Box>
       )}
     </Layout>

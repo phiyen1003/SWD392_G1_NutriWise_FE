@@ -20,8 +20,8 @@ const initialState: ChatMessageDTO = {
 }
 
 export const Chat = ({ setSessions }: ChatProps) => {
-    const userId = localStorage.getItem('userId');
-    // const userId = 1;
+    // const userId = localStorage.getItem('userId');
+    const userId = 1;
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -86,7 +86,6 @@ export const Chat = ({ setSessions }: ChatProps) => {
                 content: content
             })
 
-            // if (responseMessage.status === 200) {
             const userMessage = responseMessage.data.userMessage;
             const aiMessage = responseMessage.data.aiResponse;
 
@@ -103,9 +102,7 @@ export const Chat = ({ setSessions }: ChatProps) => {
                 isUserMessage: aiMessage.isUserMessage,
                 sentTime: aiMessage.sentTime,
                 content: aiMessage.content
-
             }]);
-            // }
         } catch (err) {
             setToastInfo({ open: true, message: "NutriWise AI đang có lỗi ><" });
         }

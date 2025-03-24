@@ -21,6 +21,8 @@ import {
   deleteIngredientInRecipe,
 } from "../../api/ingredientInRecipeApi";
 import { IngredientInRecipeDTO, CreateIngredientInRecipeDTO, UpdateIngredientInRecipeDTO } from "../../types/types";
+import apiClient from "../../api/apiClient";
+import { CustomPagination } from "../../components/PagingComponent";
 
 const IngredientInRecipesPage: React.FC = () => {
   const [items, setItems] = useState<IngredientInRecipeDTO[]>([]);
@@ -33,16 +35,29 @@ const IngredientInRecipesPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [orderBy, setOrderBy] = useState<keyof IngredientInRecipeDTO>("ingredientId");
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(0);
+
+  const setPaging = (currentPage: number, totalCount: number, pageSize: number) => {
+    setTotalCount(totalCount);
+    setCurrentPage(currentPage);
+    setPageSize(pageSize);
+  }
 
   // Load danh sách liên kết nguyên liệu trong công thức
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, [currentPage]);
 
   const fetchItems = async () => {
     try {
-      const data = await getAllIngredientInRecipes();
-      setItems(data);
+      const response = await apiClient.get(`/IngredientInRecipe/all-ingredient-in-recipe?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}`);
+      const paginationHeader = JSON.parse(response.headers["x-pagination"]);
+      setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
+      setItems(response.data);
     } catch (err) {
       setError("Đã xảy ra lỗi khi tải danh sách nguyên liệu trong công thức");
       console.error(err);
@@ -201,50 +216,58 @@ const IngredientInRecipesPage: React.FC = () => {
           {error ? (
             <Typography color="error">{error}</Typography>
           ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Recipe ID</TableCell>
-                  <TableCell>Tên nguyên liệu</TableCell>
-                  <TableCell>Số lượng</TableCell>
-                  <TableCell>Hành động</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {items.length === 0 ? (
+            <>
+              <Table>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={5}>Không có liên kết nào để hiển thị.</TableCell>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Recipe ID</TableCell>
+                    <TableCell>Tên nguyên liệu</TableCell>
+                    <TableCell>Số lượng</TableCell>
+                    <TableCell>Hành động</TableCell>
                   </TableRow>
-                ) : (
-                  items.map((item) => (
-                    <TableRow key={item.ingredientInRecipeId}>
-                      <TableCell>{item.ingredientInRecipeId}</TableCell>
-                      <TableCell>{item.recipeId}</TableCell>
-                      <TableCell>{item.ingredientName || "Không xác định"}</TableCell>
-                      <TableCell>{item.quantity} {item.unit || ""}</TableCell>
-                      <TableCell>
-                        <Button
-                          onClick={() => editItem(item)}
-                          color="primary"
-                          variant="outlined"
-                          sx={{ mr: 1 }}
-                        >
-                          Chỉnh sửa
-                        </Button>
-                        <Button
-                          onClick={() => deleteItemHandler(item.ingredientInRecipeId)}
-                          color="secondary"
-                          variant="outlined"
-                        >
-                          Xóa
-                        </Button>
-                      </TableCell>
+                </TableHead>
+                <TableBody>
+                  {items.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5}>Không có liên kết nào để hiển thị.</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    items.map((item) => (
+                      <TableRow key={item.ingredientInRecipeId}>
+                        <TableCell>{item.ingredientInRecipeId}</TableCell>
+                        <TableCell>{item.recipeId}</TableCell>
+                        <TableCell>{item.ingredientName || "Không xác định"}</TableCell>
+                        <TableCell>{item.quantity} {item.unit || ""}</TableCell>
+                        <TableCell>
+                          <Button
+                            onClick={() => editItem(item)}
+                            color="primary"
+                            variant="outlined"
+                            sx={{ mr: 1 }}
+                          >
+                            Chỉnh sửa
+                          </Button>
+                          <Button
+                            onClick={() => deleteItemHandler(item.ingredientInRecipeId)}
+                            color="secondary"
+                            variant="outlined"
+                          >
+                            Xóa
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <CustomPagination
+                count={totalCount}
+                pageSize={pageSize}
+                defaultPage={currentPage}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            </>
           )}
         </Paper>
       </Box>

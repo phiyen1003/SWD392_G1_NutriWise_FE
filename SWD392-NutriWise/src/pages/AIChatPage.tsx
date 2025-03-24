@@ -8,8 +8,8 @@ import { ChatSessionDTO } from "../types/types";
 import apiClient from "../api/apiClient";
 
 export default function AIChatPage() {
-    const userId = localStorage.getItem('userId');
-    // const userId = 1;
+    // const userId = localStorage.getItem('userId');
+    const userId = 1;
     const { sessionId } = useParams();
     
     const [sessions, setSessions] = useState<ChatSessionDTO[]>([]);

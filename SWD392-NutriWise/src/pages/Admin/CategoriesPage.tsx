@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { CSVLink } from "react-csv";
 
 import { Typography, Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel, Button } from "@mui/material";
 import { Delete } from "@mui/icons-material";
@@ -31,6 +32,7 @@ const CategoriesPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [query, setQuery] = useState<string>('');
+  const [dataFetched, setDataFetched] = useState<boolean>(false);
 
   const setPaging = (currentPage: number, totalCount: number, pageSize: number) => {
     setTotalCount(totalCount);
@@ -55,6 +57,7 @@ const CategoriesPage: React.FC = () => {
     } catch (error) {
       onToast(500, true, 'Có lỗi xảy ra trong quá trình xử lý');
     } finally {
+      setDataFetched(true);
       setLoading(false);
     }
   }, [order, orderBy, currentPage]);
@@ -142,6 +145,13 @@ const CategoriesPage: React.FC = () => {
           </VStack>)
           : (
             <Box sx={{ p: 3 }}>
+              <Button variant="contained" color="success">
+                <CSVLink
+                  data={categories}
+                  filename="categories_nutriwise">
+                  Export to CSV
+                </CSVLink>
+              </Button>
               <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
                 <Button
                   size="large"
@@ -229,14 +239,13 @@ const CategoriesPage: React.FC = () => {
                     onPageChange={(page) => setCurrentPage(page)}
                   />
                 </Paper>
-              ) : (
-                <Box mt={2} display={"flex"} justifyContent={"center"}>
-                  <FuzzyText
-                    baseIntensity={0.2}
-                    color="#1a237e"
-                  >Not found</FuzzyText>
+              ) : dataFetched ? (
+                <Box mt={2} display="flex" justifyContent="center">
+                  <FuzzyText baseIntensity={0.2} color="#1a237e">
+                    Not found
+                  </FuzzyText>
                 </Box>
-              )}
+              ) : (<Text>Hiện tại chưa có thành phần dị ứng nào</Text>)}
             </Box>
           )}
       </Layout>
