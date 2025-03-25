@@ -23,6 +23,7 @@ import ProfileGoalsPage from "../pages/Admin/ProfileGoalsPage";
 import RecipeHealthGoalsPage from "../pages/Admin/RecipeHealthGoalsPage";
 import RecipeImagesPage from "../pages/Admin/RecipeImagesPage";
 import AuthModal from "../components/Home/AuthModal";
+import HealthProfilePage from "../pages/Admin/HealthProfilePage";
 import { googleCallback, completeProfile } from "../api/accountApi";
 import { CompleteProfileRequest, GoogleCallbackResponse } from "../api/accountApi";
 import { auth } from "../firebase-config";
@@ -163,6 +164,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/nutriwise/health-goals" element={<HealthGoalsPage />} />
         <Route path="/nutriwise/health-metrics" element={<HealthMetricsPage />} />
         <Route path="/nutriwise/health-profiles" element={<HealthProfilesPage />} />
+        <Route path="/nutriwise/health-profiles/:profileId" element={<HealthProfilePage />} />
         <Route path="/nutriwise/ingredients" element={<IngredientsPage />} />
         <Route path="/nutriwise/ingredient-in-recipes" element={<IngredientInRecipesPage />} />
         <Route path="/nutriwise/menu-histories" element={<MenuHistoriesPage />} />

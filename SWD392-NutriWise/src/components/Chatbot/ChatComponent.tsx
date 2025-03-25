@@ -73,7 +73,7 @@ export const Chat = ({ setSessions }: ChatProps) => {
             if (!sessionId) {
                 const response = await apiClient.post(`/Chat/session`, {
                     userId: userId,
-                    title: `New chat ${dayjs(new Date())}`
+                    title: content.slice(0, 20)
                 })
                 setSessions((prev) => [response.data, ...prev]);
                 newSessionId = response.data.chatSessionId;
