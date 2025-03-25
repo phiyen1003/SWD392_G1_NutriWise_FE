@@ -3,35 +3,47 @@ import { useEffect, useState } from "react";
 import { CategoryDTO } from "../../types/types";
 import { createCategory, updateCategory } from "../../api/categoryApi";
 import { Toast } from "../ToastComponent";
+import * as yup from 'yup';
+import { SubmitHandler, useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
 
-const CategoryModal = ({ open, category, handleClose, setCategories, title, action, initialState }: {
-    open: boolean, category: CategoryDTO,
-    handleClose: () => void, setCategories: React.Dispatch<React.SetStateAction<CategoryDTO[]>>,
-    title: string, action: string, initialState: CategoryDTO
-}) => {
+interface CategoryProps {
+    open: boolean,
+    category: CategoryDTO,
+    handleClose: () => void,
+    setCategories: React.Dispatch<React.SetStateAction<CategoryDTO[]>>,
+    title: string,
+    action: string,
+    initialState: CategoryDTO
+}
+
+const CategoryModal = ({ open, category, handleClose, setCategories, title, action, initialState }: CategoryProps) => {
+    const schema = yup.object().shape({
+        name: yup.string().required('Vui lòng nhập tên danh mục').min(2, 'Tên danh mục có số ký tự từ 2 - 50')
+        .max(50, 'Tên danh mục có số ký tự từ 2 - 50'),
+        description: yup.string().required('Vui lòng nhập mô tả').min(10, 'Mô tả có số ký tự từ 10 trở lên')
+    })
+    
     const [openToast, setOpenToast] = useState<boolean>(false);
     const [statusCode, setStatusCode] = useState<number>(0);
     const [information, setInformation] = useState<string>('');
-    const [formData, setFormData] = useState<CategoryDTO>({
-        categoryId: 0,
-        name: "",
-        description: "",
-    });
+
+    const { register, reset, formState: { errors }, handleSubmit } = useForm<CategoryDTO>({
+        defaultValues: {
+            categoryId: 0,
+            name: "",
+            description: "",
+        },
+        resolver: yupResolver(schema)
+    })
 
     useEffect(() => {
         if (category) {
-            setFormData(category);
+            reset(category);
         }
     }, [category]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!formData) return;
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
+    const onSubmit: SubmitHandler<CategoryDTO> = async (formData) => {
         if (!formData) return;
 
         try {
@@ -76,7 +88,7 @@ const CategoryModal = ({ open, category, handleClose, setCategories, title, acti
     return (
         <>
             {/* Toast thông báo */}
-            <Toast 
+            <Toast
                 onClose={handleCloseToast}
                 information={information}
                 open={openToast}
@@ -104,24 +116,24 @@ const CategoryModal = ({ open, category, handleClose, setCategories, title, acti
                     }}
                 >
                     <h2>{title}</h2>
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit(onSubmit)}>
                         <TextField
                             fullWidth
                             label="Tên danh mục"
-                            name="name"
-                            value={formData?.name}
-                            onChange={handleChange}
+                            {...register('name')}
                             variant="outlined"
                             margin="normal"
+                            error={!!errors.name}
+                            helperText={errors.name?.message}
                         />
                         <TextField
                             fullWidth
                             label="Mô tả"
-                            name="description"
-                            value={formData?.description}
-                            onChange={handleChange}
+                            {...register('description')}
                             variant="outlined"
                             margin="normal"
+                            error={!!errors.description}
+                            helperText={errors.description?.message}
                         />
                         <Box display="flex" justifyContent="flex-end" gap={2} mt={2}>
                             <Button variant="outlined" onClick={handleClose}>Hủy</Button>

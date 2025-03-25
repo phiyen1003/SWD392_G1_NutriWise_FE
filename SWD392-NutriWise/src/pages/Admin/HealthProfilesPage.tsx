@@ -12,6 +12,7 @@ import { CustomPagination } from "../../components/PagingComponent";
 import { Toast } from "../../components/ToastComponent";
 import { Search } from "../../components/SearchComponent";
 import FuzzyText from "../../lib/FuzzyText/FuzzyText";
+import { Link } from "react-router-dom";
 
 const HealthProfilesPage: React.FC = () => {
   const [profiles, setProfiles] = useState<HealthProfileDTO[]>([]);
@@ -203,8 +204,16 @@ const HealthProfilesPage: React.FC = () => {
                 <TableBody>
                   {profiles.map((profile) => (
                     <TableRow key={profile.healthProfileId}>
-                      <TableCell>{profile.healthProfileId}</TableCell>
-                      <TableCell>{profile.fullName}</TableCell>
+                      <TableCell>
+                        <Link to={`/nutriwise/health-profiles/${profile.healthProfileId}`}>
+                          {profile.healthProfileId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Link to={`/nutriwise/health-profiles/${profile.healthProfileId}`}>
+                          {profile.fullName}
+                        </Link>
+                      </TableCell>
                       <TableCell>{profile.gender}</TableCell>
                       <TableCell>{profile.height}</TableCell>
                       <TableCell>{profile.weight}</TableCell>
