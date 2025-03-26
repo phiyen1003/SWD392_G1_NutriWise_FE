@@ -1,56 +1,102 @@
 // src/api/healthGoalApi.ts
 import apiClient from "./apiClient";
-import { HealthGoalDTO, UpdateHealthGoalDTO } from "../types/types"; // Import từ types.ts
+import { HealthGoalDTO, UpdateHealthGoalDTO } from "../types/types";
 
-export const getAllHealthGoals = async (): Promise<HealthGoalDTO[]> => {
+// Lấy tất cả HealthGoal với phân trang
+export const getAllHealthGoals = async (params: {
+  PageNumber: number;
+  PageSize: number;
+  OrderBy?: string;
+}): Promise<HealthGoalDTO[]> => {
   try {
-    const response = await apiClient.get("/HealthGoal/all-health-goal");
+    const { PageNumber, PageSize, OrderBy } = params;
+    if (PageNumber < 1 || PageSize < 1) {
+      throw new Error("PageNumber and PageSize must be greater than 0");
+    }
+    const response = await apiClient.get("/HealthGoal/all-health-goal", { params });
     return response.data;
-  } catch (error) {
-    throw new Error("Failed to fetch health goals");
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "Failed to fetch health goals";
+    throw new Error(errorMessage);
   }
 };
 
-export const getHealthGoalById = async (id: number): Promise<HealthGoalDTO> => { // id: string -> number
+// Lấy HealthGoal theo ID
+export const getHealthGoalById = async (id: number): Promise<HealthGoalDTO> => {
   try {
+    if (!id || id <= 0) {
+      throw new Error("Invalid ID: ID must be a positive number");
+    }
     const response = await apiClient.get(`/HealthGoal/health-goal-by-id/${id}`);
     return response.data;
-  } catch (error) {
-    throw new Error(`Failed to fetch health goal with id ${id}`);
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || `Failed to fetch health goal with id ${id}`;
+    throw new Error(errorMessage);
   }
 };
 
-export const createHealthGoal = async (healthGoal: HealthGoalDTO): Promise<HealthGoalDTO> => { // Sử dụng HealthGoalDTO
+// Tạo mới HealthGoal
+export const createHealthGoal = async (healthGoal: HealthGoalDTO): Promise<HealthGoalDTO> => {
   try {
+    if (!healthGoal.name || !healthGoal.description) {
+      throw new Error("Name and Description are required");
+    }
     const response = await apiClient.post("/HealthGoal/health-goal-creation", healthGoal);
     return response.data;
-  } catch (error) {
-    throw new Error("Failed to create health goal");
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "Failed to create health goal";
+    throw new Error(errorMessage);
   }
 };
 
-export const updateHealthGoal = async (id: number, healthGoal: UpdateHealthGoalDTO): Promise<HealthGoalDTO> => { // id: string -> number, dùng UpdateHealthGoalDTO
+// Cập nhật HealthGoal
+export const updateHealthGoal = async (
+  id: number,
+  healthGoal: UpdateHealthGoalDTO
+): Promise<HealthGoalDTO> => {
   try {
+    if (!id || id <= 0) {
+      throw new Error("Invalid ID: ID must be a positive number");
+    }
+    if (!healthGoal.name || !healthGoal.description) {
+      throw new Error("Name and Description are required");
+    }
     const response = await apiClient.put(`/HealthGoal/health-goal-updation/${id}`, healthGoal);
     return response.data;
-  } catch (error) {
-    throw new Error(`Failed to update health goal with id ${id}`);
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || `Failed to update health goal with id ${id}`;
+    throw new Error(errorMessage);
   }
 };
 
-export const deleteHealthGoal = async (id: number): Promise<void> => { // id: string -> number
+// Xóa HealthGoal
+export const deleteHealthGoal = async (id: number): Promise<void> => {
   try {
+    if (!id || id <= 0) {
+      throw new Error("Invalid ID: ID must be a positive number");
+    }
     await apiClient.delete(`/HealthGoal/health-goal-deletion/${id}`);
-  } catch (error) {
-    throw new Error(`Failed to delete health goal with id ${id}`);
+  } catch (error: any) {
+    const errorMessage =
+      error.response?.data?.message || `Failed to delete health goal with id ${id}`;
+    throw new Error(errorMessage);
   }
 };
 
+// Tìm kiếm HealthGoal
 export const searchHealthGoal = async (query: string): Promise<HealthGoalDTO[]> => {
   try {
-    const response = await apiClient.get(`/HealthGoal/health-goal-search?name=${query}`);
+    if (!query || query.trim() === "") {
+      throw new Error("Query cannot be empty");
+    }
+    const response = await apiClient.get("/HealthGoal/health-goal-search", {
+      params: { name: query },
+    });
     return response.data;
-  } catch (error) {
-    throw new Error("Failed to search health goals");
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "Failed to search health goals";
+    throw new Error(errorMessage);
   }
 };

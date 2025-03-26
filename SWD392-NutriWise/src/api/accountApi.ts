@@ -1,20 +1,20 @@
-// src/api/accountApi.ts
 import apiClient from "./apiClient";
 import { auth } from "../firebase-config";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
+// Định nghĩa interface cho response từ BE
 export interface GoogleLoginResponse {
   token: string;
-  email: string;
+  email: string | null; // Sửa thành string | null để khớp với Firebase
   userId: string;
-  profileComplete: boolean;
+  isRegistered: boolean;
 }
 
 export interface GoogleCallbackResponse {
+  userId: string;
   token: string;
-  email: string;
+  email: string | null; // Sửa tương tự
   isRegistered: boolean;
-  profileComplete: boolean;
 }
 
 export interface CompleteProfileRequest {
@@ -47,7 +47,7 @@ export interface RegisterRequest {
   bmi: number;
   bloodPressure: string;
   cholesterol: string;
-  email: string;
+  email: string; // Giữ là string vì đây là trường bắt buộc trong đăng ký
   username: string;
   password?: string;
 }
@@ -67,67 +67,100 @@ export interface UpdateProfileRequest {
 
 const provider = new GoogleAuthProvider();
 
+// Đăng nhập bằng Firebase
 export const firebaseLogin = async (): Promise<GoogleLoginResponse> => {
   try {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
-    const idToken = await user.getIdToken(true); // Làm mới idToken
-    console.log("idToken:", idToken);
+    const idToken = await user.getIdToken(true);
+    console.log("Firebase ID Token:", idToken);
 
     const response = await apiClient.post<GoogleLoginResponse>("/Account/firebase-login", {
       idToken,
     });
-
     const data = response.data;
 
-    if (data.profileComplete) {
+    // Nếu user đã đăng ký hoàn chỉnh, lưu token chính thức
+    if (data.token && data.isRegistered) {
       localStorage.setItem("token", data.token);
-      localStorage.setItem("email", data.email);
+      localStorage.setItem("email", data.email || ""); // Fallback nếu email là null
       localStorage.setItem("userId", data.userId);
     } else {
-      localStorage.setItem("tempToken", data.token);
-      localStorage.setItem("tempEmail", data.email);
-      localStorage.setItem("tempUserId", data.userId);
+      // Nếu user chưa đăng ký, lưu thông tin tạm
+      localStorage.setItem("tempEmail", data.email || user.email || ""); // Fallback từ Firebase
+      localStorage.setItem("tempUserId", data.userId || user.uid);
     }
 
     return data;
-  } catch (error:any) {
+  } catch (error: any) {
     if (error.response) {
       console.error("Backend error:", error.response.data);
-      throw new Error(`Đăng nhập Firebase thất bại: ${error.response.data.message || "Lỗi không xác định"}`);
+      throw new Error(
+        `Đăng nhập Firebase thất bại: ${error.response.data.message || "Lỗi không xác định"}`
+      );
     } else {
-      throw new Error(`Đăng nhập Firebase thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+      throw new Error(
+        `Đăng nhập Firebase thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+      );
     }
   }
 };
 
+// Callback cho Google (nếu dùng redirect flow)
 export const googleCallback = async (idToken: string): Promise<GoogleCallbackResponse> => {
   try {
     const response = await apiClient.post<GoogleCallbackResponse>("/Account/firebase-login", {
       idToken,
     });
-
     const data = response.data;
 
+    if (data.token && data.isRegistered) {
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("email", data.email || ""); // Fallback nếu email là null
+      localStorage.setItem("userId", data.userId);
+    } else {
+      localStorage.setItem("tempEmail", data.email || ""); // Fallback
+      localStorage.setItem("tempUserId", data.userId);
+    }
+
     return data;
-  } catch (error) {
-    throw new Error(`Xử lý callback thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+  } catch (error: any) {
+    throw new Error(
+      `Xử lý callback thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+    );
   }
 };
 
+// Đăng ký user với thông tin đầy đủ
 export const register = async (data: RegisterRequest): Promise<GoogleLoginResponse> => {
   try {
     const response = await apiClient.post<GoogleLoginResponse>("/Account/register", data);
-    localStorage.setItem("token", response.data.token);
-    localStorage.setItem("email", response.data.email);
-    localStorage.setItem("userId", response.data.userId);
-    return response.data;
-  } catch (error) {
-    throw new Error(`Đăng ký thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+    const result = response.data;
+
+    localStorage.setItem("token", result.token);
+    localStorage.setItem("email", result.email || ""); // Fallback nếu null
+    localStorage.setItem("userId", result.userId);
+    localStorage.removeItem("tempToken");
+    localStorage.removeItem("tempEmail");
+    localStorage.removeItem("tempUserId");
+
+    return result;
+  } catch (error: any) {
+    if (error.response) {
+      throw new Error(
+        `Đăng ký thất bại: ${error.response.data.message || "Lỗi không xác định"}`
+      );
+    }
+    throw new Error(
+      `Đăng ký thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+    );
   }
 };
 
-export const completeProfile = async (data: CompleteProfileRequest): Promise<CompleteProfileResponse> => {
+// Hoàn thiện hồ sơ user
+export const completeProfile = async (
+  data: CompleteProfileRequest
+): Promise<CompleteProfileResponse> => {
   try {
     const updateProfileData: UpdateProfileRequest = {
       fullName: data.fullName ?? undefined,
@@ -142,33 +175,60 @@ export const completeProfile = async (data: CompleteProfileRequest): Promise<Com
       cholesterol: data.cholesterol ?? undefined,
     };
 
-    const response = await apiClient.put<CompleteProfileResponse>("/Account/update-profile", updateProfileData);
+    const response = await apiClient.put<CompleteProfileResponse>(
+      `/Account/update-profile/${data.userId}`,
+      updateProfileData
+    );
     return response.data;
-  } catch (error:any) {
+  } catch (error: any) {
     if (error.response) {
-      console.error("Backend error:", error.response.data);
-      throw new Error(`Hoàn thành hồ sơ thất bại: ${error.response.data.message || "Lỗi không xác định"}`);
-    } else {
-      throw new Error(`Hoàn thành hồ sơ thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+      throw new Error(
+        `Hoàn thành hồ sơ thất bại: ${error.response.data.message || "Lỗi không xác định"}`
+      );
     }
+    throw new Error(
+      `Hoàn thành hồ sơ thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+    );
   }
 };
 
-export const updateProfile = async (data: UpdateProfileRequest): Promise<CompleteProfileResponse> => {
+// Cập nhật hồ sơ user
+export const updateProfile = async (
+  data: UpdateProfileRequest,
+  userId: string
+): Promise<CompleteProfileResponse> => {
   try {
-    const response = await apiClient.put<CompleteProfileResponse>("/Account/update-profile", data);
+    const response = await apiClient.put<CompleteProfileResponse>(
+      `/Account/update-profile/${userId}`,
+      data
+    );
     return response.data;
-  } catch (error) {
-    throw new Error(`Cập nhật hồ sơ thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+  } catch (error: any) {
+    if (error.response) {
+      throw new Error(
+        `Cập nhật hồ sơ thất bại: ${error.response.data.message || "Lỗi không xác định"}`
+      );
+    }
+    throw new Error(
+      `Cập nhật hồ sơ thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+    );
   }
 };
 
+// Đăng xuất
 export const signOut = async (): Promise<void> => {
   try {
     await apiClient.post("/Account/sign-out");
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("tempToken");
+    localStorage.removeItem("email");
+    localStorage.removeItem("tempEmail");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("tempUserId");
     await auth.signOut();
-  } catch (error) {
-    throw new Error(`Đăng xuất thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+  } catch (error: any) {
+    throw new Error(
+      `Đăng xuất thất bại: ${error instanceof Error ? error.message : "Lỗi không xác định"}`
+    );
   }
 };

@@ -1,10 +1,9 @@
-// src/HomePage.tsx
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
-import { Box, CircularProgress } from "@mui/material";
-import { CompleteProfileRequest, firebaseLogin, signOut, updateProfile } from "../../api/accountApi"; // Cập nhật import
+import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from "@mui/material";
+import { CompleteProfileRequest, firebaseLogin, signOut, updateProfile, register, RegisterRequest } from "../../api/accountApi";
 import { getAllRecipes } from "../../api/recipeApi";
 import { getAllIngredients } from "../../api/ingredientApi";
 import { getAllHealthProfiles } from "../../api/healthProfileApi";
@@ -18,7 +17,7 @@ import { auth } from "../../firebase-config";
 import { onAuthStateChanged } from "firebase/auth";
 
 interface AppUser {
-  email: string;
+  email: string | null; // Sửa để khớp với GoogleLoginResponse.email
   token: string;
   userId: string;
 }
@@ -39,9 +38,24 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [openAuthModal, setOpenAuthModal] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-
+  const [openAccountPrompt, setOpenAccountPrompt] = useState<boolean>(false);
+  const [showRegisterForm, setShowRegisterForm] = useState<boolean>(false);
+  const [registerData, setRegisterData] = useState<RegisterRequest>({
+    fullName: "",
+    gender: "",
+    dateOfBirth: "",
+    height: 0,
+    weight: 0,
+    allergenId: 0,
+    healthGoalId: 0,
+    bmi: 0,
+    bloodPressure: "",
+    cholesterol: "",
+    email: localStorage.getItem("tempEmail") || "", // Điền sẵn email từ localStorage
+    username: localStorage.getItem("tempEmail")?.split("@")[0] || "", // Điền sẵn username
+    password: "",
+  });
   const navigate = useNavigate();
-  const location = useLocation();
 
   const restoreUserState = useCallback(() => {
     const storedToken = localStorage.getItem("token");
@@ -76,13 +90,12 @@ const HomePage: React.FC = () => {
     }
   }, []);
 
-  // Theo dõi trạng thái đăng nhập bằng Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         currentUser.getIdToken().then((idToken) => {
           setUser({
-            email: currentUser.email || "",
+            email: currentUser.email || null, // Sửa để chấp nhận null
             token: idToken,
             userId: currentUser.uid,
           });
@@ -113,16 +126,26 @@ const HomePage: React.FC = () => {
     }
   }, [restoreUserState, fetchData, error]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLoginPrompt = () => {
+    setOpenAccountPrompt(true);
+  };
+
+  const handleLogin = async () => {
     try {
       setError(null);
       const response = await firebaseLogin();
-      console.log("Phản hồi từ backend:", response);
-  
-      if (!response.profileComplete) {
-        setOpenAuthModal(true);
+      if (response.isRegistered) {
+        setUser({ email: response.email || null, token: response.token, userId: response.userId });
+        setOpenAccountPrompt(false);
+        navigate("/"); // Đã đăng ký hoàn chỉnh -> Trang chính
       } else {
-        navigate("/");
+        // User chưa đăng ký hoàn chỉnh -> Điền sẵn email và chuyển sang form đăng ký
+        setRegisterData({
+          ...registerData,
+          email: response.email || localStorage.getItem("tempEmail") || "",
+          username: (response.email || localStorage.getItem("tempEmail") || "").split("@")[0],
+        });
+        setShowRegisterForm(true); // Mở form đăng ký
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Không thể đăng nhập bằng Google";
@@ -130,27 +153,23 @@ const HomePage: React.FC = () => {
       console.error("Lỗi đăng nhập Google:", err);
     }
   };
-  
-  if (error) {
-    return (
-      <Box sx={{ textAlign: "center", padding: "20px" }}>
-        <p style={{ color: "red" }}>{error}</p>
-        <button
-          onClick={handleGoogleLogin}
-          style={{
-            marginTop: "10px",
-            padding: "8px 16px",
-            backgroundColor: "#3B82F6",
-            color: "#FFFFFF",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
-        >
-          Thử lại
-        </button>
-      </Box>
-    );
-  }
+
+  const handleRegister = async () => {
+    try {
+      setError(null);
+      const response = await register(registerData);
+      setUser({ email: response.email || null, token: response.token, userId: response.userId });
+      setShowRegisterForm(false);
+      setOpenAccountPrompt(false);
+      alert("Đăng ký thành công! Đang đăng nhập...");
+      navigate("/");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể đăng ký";
+      setError(errorMessage);
+      console.error("Lỗi đăng ký:", err);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -166,8 +185,22 @@ const HomePage: React.FC = () => {
 
   const handleCompleteProfile = async (data: CompleteProfileRequest) => {
     try {
-      const response = await updateProfile(data);
-      setUser({ email: data.email || "", token: localStorage.getItem("token") || "", userId: data.userId });
+      const response = await updateProfile(
+        {
+          fullName: data.fullName,
+          gender: data.gender,
+          dateOfBirth: data.dateOfBirth,
+          height: data.height,
+          weight: data.weight,
+          allergenId: data.allergenId,
+          healthGoalId: data.healthGoalId,
+          bmi: data.bmi,
+          bloodPressure: data.bloodPressure,
+          cholesterol: data.cholesterol,
+        },
+        data.userId // Thêm userId vào tham số thứ hai
+      );
+      setUser({ email: data.email || null, token: localStorage.getItem("token") || "", userId: data.userId });
       setShowAIChat(true);
       setOpenAuthModal(false);
       setError(null);
@@ -380,7 +413,7 @@ const HomePage: React.FC = () => {
                     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                   }}
                 >
-                  {user.email[0].toUpperCase()}
+                  {user.email ? user.email[0].toUpperCase() : "U"} {/* Thêm fallback nếu email là null */}
                 </motion.div>
                 <motion.button
                   whileHover={{ scale: 1.05, backgroundColor: "#DC2626" }}
@@ -416,7 +449,7 @@ const HomePage: React.FC = () => {
                   transition: "all 0.3s ease",
                   boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                 }}
-                onClick={handleGoogleLogin}
+                onClick={handleGoogleLoginPrompt}
                 className="md:flex hidden"
               >
                 Đăng nhập
@@ -561,7 +594,7 @@ const HomePage: React.FC = () => {
                   transition: "all 0.3s ease",
                   boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                 }}
-                onClick={handleGoogleLogin}
+                onClick={handleGoogleLoginPrompt}
               >
                 Đăng nhập
               </motion.button>
@@ -578,6 +611,124 @@ const HomePage: React.FC = () => {
         userId={localStorage.getItem("tempUserId") || ""}
         email={localStorage.getItem("tempEmail") || ""}
       />
+
+      {/* Modal hỏi tài khoản */}
+      <Dialog open={openAccountPrompt} onClose={() => setOpenAccountPrompt(false)}>
+        <DialogTitle>Bạn đã có tài khoản chưa?</DialogTitle>
+        <DialogContent>
+          {!showRegisterForm ? (
+            <p>Vui lòng chọn tùy chọn bên dưới:</p>
+          ) : (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+              <TextField
+                label="Họ tên"
+                value={registerData.fullName}
+                onChange={(e) => setRegisterData({ ...registerData, fullName: e.target.value })}
+                required
+              />
+              <TextField
+                label="Giới tính"
+                value={registerData.gender}
+                onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
+                required
+              />
+              <TextField
+                label="Ngày sinh (YYYY-MM-DD)"
+                value={registerData.dateOfBirth}
+                onChange={(e) => setRegisterData({ ...registerData, dateOfBirth: e.target.value })}
+                required
+              />
+              <TextField
+                label="Chiều cao (cm)"
+                type="number"
+                value={registerData.height}
+                onChange={(e) => setRegisterData({ ...registerData, height: parseInt(e.target.value) || 0 })}
+                required
+              />
+              <TextField
+                label="Cân nặng (kg)"
+                type="number"
+                value={registerData.weight}
+                onChange={(e) => setRegisterData({ ...registerData, weight: parseInt(e.target.value) || 0 })}
+                required
+              />
+              <TextField
+                label="Allergen ID"
+                type="number"
+                value={registerData.allergenId}
+                onChange={(e) => setRegisterData({ ...registerData, allergenId: parseInt(e.target.value) || 0 })}
+                required
+              />
+              <TextField
+                label="Health Goal ID"
+                type="number"
+                value={registerData.healthGoalId}
+                onChange={(e) => setRegisterData({ ...registerData, healthGoalId: parseInt(e.target.value) || 0 })}
+                required
+              />
+              <TextField
+                label="BMI"
+                type="number"
+                value={registerData.bmi}
+                onChange={(e) => setRegisterData({ ...registerData, bmi: parseFloat(e.target.value) || 0 })}
+                required
+              />
+              <TextField
+                label="Huyết áp"
+                value={registerData.bloodPressure}
+                onChange={(e) => setRegisterData({ ...registerData, bloodPressure: e.target.value })}
+                required
+              />
+              <TextField
+                label="Cholesterol"
+                value={registerData.cholesterol}
+                onChange={(e) => setRegisterData({ ...registerData, cholesterol: e.target.value })}
+                required
+              />
+              <TextField
+                label="Email"
+                value={registerData.email}
+                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                required
+              />
+              <TextField
+                label="Tên đăng nhập"
+                value={registerData.username}
+                onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                required
+              />
+              <TextField
+                label="Mật khẩu"
+                type="password"
+                value={registerData.password}
+                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                required
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!showRegisterForm ? (
+            <>
+              <Button onClick={handleLogin} color="primary">
+                Đã có tài khoản (Đăng nhập)
+              </Button>
+              <Button onClick={() => setShowRegisterForm(true)} color="secondary">
+                Chưa có (Đăng ký)
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={handleRegister} color="primary">
+                Đăng ký
+              </Button>
+              <Button onClick={() => setShowRegisterForm(false)} color="secondary">
+                Quay lại
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
 
       <section style={{
         position: "relative",
@@ -660,7 +811,7 @@ const HomePage: React.FC = () => {
                 gap: "8px",
                 border: "none",
               }}
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleLoginPrompt}
               onMouseOver={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #F3F4F6 0%, #FFFFFF 100%)")}
               onMouseOut={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)")}
             >
@@ -860,7 +1011,7 @@ const HomePage: React.FC = () => {
                   transition: "background-color 0.3s",
                   boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                 }}
-                onClick={() => navigate("/ingredients")}
+                onClick={() => navigate("/")}
                 onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                 onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
               >
@@ -1054,7 +1205,7 @@ const HomePage: React.FC = () => {
                     transition: "background-color 0.3s",
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                   }}
-                  onClick={handleGoogleLogin}
+                  onClick={handleGoogleLoginPrompt}
                   onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                   onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                 >

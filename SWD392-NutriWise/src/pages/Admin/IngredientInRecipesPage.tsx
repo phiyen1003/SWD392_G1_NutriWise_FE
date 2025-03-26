@@ -1,4 +1,3 @@
-// src/pages/IngredientInRecipesPage.tsx
 import React, { useEffect, useState, ChangeEvent } from "react";
 import {
   Box,
@@ -12,6 +11,7 @@ import {
   TextField,
   Typography,
   Grid,
+  Pagination,
 } from "@mui/material";
 import Layout from "../../components/Admin/Layout";
 import {
@@ -30,7 +30,7 @@ const IngredientInRecipesPage: React.FC = () => {
     recipeId: 0,
     ingredientId: 0,
     quantity: 0,
-    unit: null, // Sử dụng null thay vì chuỗi rỗng
+    unit: null,
   });
   const [isEditing, setIsEditing] = useState(false);
   const [currentItemId, setCurrentItemId] = useState<number | null>(null);
@@ -47,9 +47,15 @@ const IngredientInRecipesPage: React.FC = () => {
     setPageSize(pageSize);
   }
 
-  // Load danh sách liên kết nguyên liệu trong công thức
+  // State cho phân trang
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [totalItems, setTotalItems] = useState<number>(0); // Tổng số liên kết (giả định API trả về)
+
+  // Load danh sách liên kết khi component mount hoặc khi pageNumber/pageSize thay đổi
   useEffect(() => {
     fetchItems();
+<<<<<<< Updated upstream
   }, [currentPage]);
 
   const fetchItems = async () => {
@@ -58,6 +64,27 @@ const IngredientInRecipesPage: React.FC = () => {
       const paginationHeader = JSON.parse(response.headers["x-pagination"]);
       setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
       setItems(response.data);
+=======
+  }, [pageNumber, pageSize]);
+
+  const fetchItems = async () => {
+    try {
+      const data = await getAllIngredientInRecipes({
+        pageNumber,
+        pageSize,
+        orderBy: "ingredientId", // Sắp xếp theo tên nguyên liệu, có thể thay đổi
+        // quantityMin: 0, // Uncomment nếu muốn lọc theo số lượng tối thiểu
+        // quantityMax: 100, // Uncomment nếu muốn lọc theo số lượng tối đa
+        // unit: "gram", // Uncomment nếu muốn lọc theo đơn vị
+        // combineWith: 1, // Uncomment nếu cần
+      });
+      setItems(data);
+
+      // Giả định API không trả về totalItems, cần cập nhật logic nếu API trả về metadata
+      // Ví dụ: Nếu API trả về { items: IngredientInRecipeDTO[], totalItems: number }
+      // thì cần setTotalItems(response.totalItems);
+      setTotalItems(data.length > 0 ? pageNumber * pageSize + 1 : 0); // Tạm tính, cần API hỗ trợ
+>>>>>>> Stashed changes
     } catch (err) {
       setError("Đã xảy ra lỗi khi tải danh sách nguyên liệu trong công thức");
       console.error(err);
@@ -86,24 +113,22 @@ const IngredientInRecipesPage: React.FC = () => {
         setIsEditing(false);
         setCurrentItemId(null);
       } else {
-        // Tạo mới liên kết với CreateIngredientInRecipeDTO
         const createdItem = await createIngredientInRecipe({
           recipeId: newItem.recipeId,
           ingredientId: newItem.ingredientId,
           quantity: newItem.quantity,
           unit: newItem.unit,
-          ingredientInRecipeId: 0
+          ingredientInRecipeId: 0,
         });
-        // Kiểm tra và bổ sung dữ liệu nếu cần
         const fullCreatedItem: IngredientInRecipeDTO = {
           ...createdItem,
-          ingredientInRecipeId: createdItem.ingredientInRecipeId || 0, // Đảm bảo có ingredientInRecipeId
-          ingredientName: createdItem.ingredientName || "Không xác định", // Đảm bảo có ingredientName
+          ingredientInRecipeId: createdItem.ingredientInRecipeId || 0,
+          ingredientName: createdItem.ingredientName || "Không xác định",
         };
         setItems([...items, fullCreatedItem]);
       }
       setNewItem({ recipeId: 0, ingredientId: 0, quantity: 0, unit: null });
-      fetchItems();
+      fetchItems(); // Làm mới danh sách sau khi thêm/cập nhật
     } catch (err) {
       alert(isEditing ? "Không thể cập nhật liên kết" : "Không thể thêm liên kết");
       console.error(err);
@@ -115,6 +140,7 @@ const IngredientInRecipesPage: React.FC = () => {
       try {
         await deleteIngredientInRecipe(id);
         setItems(items.filter((item) => item.ingredientInRecipeId !== id));
+        fetchItems(); // Làm mới danh sách sau khi xóa
       } catch (err) {
         alert("Không thể xóa liên kết");
         console.error(err);
@@ -139,6 +165,16 @@ const IngredientInRecipesPage: React.FC = () => {
       ...prev,
       [name]: name === "recipeId" || name === "ingredientId" || name === "quantity" ? Number(value) : value || null,
     }));
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPageNumber(value);
+  };
+
+  const handlePageSizeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const size = parseInt(e.target.value) || 10;
+    setPageSize(size);
+    setPageNumber(1); // Reset về trang 1 khi thay đổi kích thước trang
   };
 
   return (
@@ -208,6 +244,28 @@ const IngredientInRecipesPage: React.FC = () => {
             >
               {isEditing ? "Cập nhật liên kết" : "Thêm liên kết"}
             </Button>
+          </Grid>
+        </Grid>
+
+        {/* Điều khiển phân trang */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Số liên kết mỗi trang"
+              type="number"
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              inputProps={{ min: 1 }}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Pagination
+              count={Math.ceil(totalItems / pageSize)} // Tính số trang dựa trên tổng số item
+              page={pageNumber}
+              onChange={handlePageChange}
+              color="primary"
+            />
           </Grid>
         </Grid>
 

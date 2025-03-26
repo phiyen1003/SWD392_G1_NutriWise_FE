@@ -1,27 +1,21 @@
-import React, { useState, useEffect, ChangeEvent } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
   Card,
   Grid,
+  CardMedia,
   CardContent,
   Chip,
   Button,
   TextField,
   CircularProgress,
   Box,
-  Pagination,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  ImageList,
-  ImageListItem,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  SelectChangeEvent,
+  Pagination,
 } from "@mui/material";
 import { AxiosResponse } from "axios";
 import Layout from "../../components/Admin/Layout";
@@ -34,12 +28,12 @@ import {
 import {
   getRecipeImagesByRecipeId,
   uploadRecipeImages,
-  deleteRecipeImage,
 } from "../../api/recipeImageApi";
 import { RecipeDTO, UpdateRecipeDTO, RecipeImageDTO } from "../../types/types";
 
 const RecipePage: React.FC = () => {
   const [recipes, setRecipes] = useState<RecipeDTO[]>([]);
+  const [allRecipes, setAllRecipes] = useState<RecipeDTO[]>([]); // Lưu tất cả công thức
   const [newRecipe, setNewRecipe] = useState<Partial<RecipeDTO>>({
     name: "",
     description: "",
@@ -47,100 +41,66 @@ const RecipePage: React.FC = () => {
     cookingTime: 0,
     servings: 0,
   });
+  const [customImageUrl, setCustomImageUrl] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [currentRecipeId, setCurrentRecipeId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [recipeImages, setRecipeImages] = useState<Record<number, RecipeImageDTO[]>>({});
+  const [recipeImages, setRecipeImages] = useState<{ [key: number]: RecipeImageDTO[] }>({});
+  const [customImageUrls, setCustomImageUrls] = useState<{ [key: number]: string }>({});
   const [openUploadDialog, setOpenUploadDialog] = useState(false);
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
 
-  const [filters, setFilters] = useState<{
-    PageNumber: number;
-    PageSize: number;
-    OrderBy?: string;
-    Description?: string;
-    CategoryId?: number;
-    "CookingTime.Min"?: number;
-    "CookingTime.Max"?: number;
-    "Servings.Min"?: number;
-    "Servings.Max"?: number;
-    CombineWith?: number;
-  }>({
-    PageNumber: 1,
-    PageSize: 6,
-    Description: undefined,
-    CategoryId: undefined,
-    "CookingTime.Min": undefined,
-    "CookingTime.Max": undefined,
-    "Servings.Min": undefined,
-    "Servings.Max": undefined,
-    CombineWith: undefined,
-  });
-  const [totalPages, setTotalPages] = useState<number>(1);
-
-  const [tempFilters, setTempFilters] = useState<{
-    OrderBy?: string;
-    Description?: string;
-    CategoryId?: number;
-    "CookingTime.Min"?: number;
-    "CookingTime.Max"?: number;
-    "Servings.Min"?: number;
-    "Servings.Max"?: number;
-    CombineWith?: number;
-  }>({
-    OrderBy: "",
-    Description: undefined,
-    CategoryId: undefined,
-    "CookingTime.Min": undefined,
-    "CookingTime.Max": undefined,
-    "Servings.Min": undefined,
-    "Servings.Max": undefined,
-    CombineWith: undefined,
-  });
+  // State cho phân trang
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
+  const [totalItems, setTotalItems] = useState<number>(0);
 
   useEffect(() => {
+    const savedCustomImageUrls = localStorage.getItem("customImageUrls");
+    if (savedCustomImageUrls) {
+      setCustomImageUrls(JSON.parse(savedCustomImageUrls));
+    }
     fetchRecipes();
   }, []);
 
-  const buildParams = (filters: any): Record<string, any> => {
-    const params: Record<string, any> = {};
-    for (const key in filters) {
-      const value = filters[key];
-      if (value === undefined) continue;
-      if (key === "Description" && value === "") continue;
-      params[key] = value;
-    }
-    return params;
-  };
+  useEffect(() => {
+    // Phân trang phía client
+    const startIndex = (pageNumber - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const recipesData = allRecipes.slice(startIndex, endIndex);
+    setRecipes(recipesData);
+
+    const imagePromises = recipesData.map(async (recipe) => {
+      const images: RecipeImageDTO[] = await getRecipeImagesByRecipeId(recipe.recipeId);
+      return { recipeId: recipe.recipeId, images };
+    });
+    Promise.all(imagePromises).then((imagesData) => {
+      const imagesMap = imagesData.reduce(
+        (acc: { [key: number]: RecipeImageDTO[] }, { recipeId, images }) => {
+          acc[recipeId] = images;
+          return acc;
+        },
+        {}
+      );
+      setRecipeImages(imagesMap);
+    });
+  }, [pageNumber, pageSize, allRecipes]);
 
   const fetchRecipes = async () => {
     try {
       setLoading(true);
-      const params = buildParams(filters);
-      const response: AxiosResponse<RecipeDTO[]> = await getAllRecipes(params);
-      setRecipes(response.data);
-      const paginationHeader = response.headers["x-pagination"];
-      if (paginationHeader) {
-        const pagination = JSON.parse(paginationHeader);
-        setTotalPages(pagination.TotalPages || 1);
-      } else {
-        setTotalPages(1);
-      }
-      await Promise.all(
-        response.data.map(async (recipe: RecipeDTO) => {
-          try {
-            const images = await getRecipeImagesByRecipeId(recipe.recipeId);
-            setRecipeImages((prev) => ({ ...prev, [recipe.recipeId]: images }));
-          } catch (err) {
-            console.error(`Failed to fetch images for recipe ${recipe.recipeId}`);
-          }
-        })
-      );
-    } catch (err) {
-      setError("Đã xảy ra lỗi khi tải danh sách công thức");
-      console.error(err);
+      const response: AxiosResponse<RecipeDTO[]> = await getAllRecipes({ OrderBy: "name" });
+      const recipesData: RecipeDTO[] = response.data;
+      console.log("All recipes:", recipesData);
+
+      setAllRecipes(recipesData);
+      setTotalItems(recipesData.length);
+      console.log("Set totalItems:", recipesData.length);
+      console.log("Calculated pages:", Math.ceil(recipesData.length / pageSize));
+    } catch (err: any) {
+      setError(err.message || "Đã xảy ra lỗi khi tải danh sách công thức hoặc hình ảnh");
     } finally {
       setLoading(false);
     }
@@ -148,11 +108,12 @@ const RecipePage: React.FC = () => {
 
   const addRecipe = async () => {
     if (!newRecipe.name || newRecipe.categoryId === 0 || newRecipe.cookingTime === 0 || newRecipe.servings === 0) {
-      alert("Vui lòng điền đầy đủ thông tin: Tên, Category ID, Thời gian nấu, và Số khẩu phần");
+      setError("Vui lòng điền đầy đủ thông tin: Tên, Category ID, Thời gian nấu, và Số khẩu phần");
       return;
     }
 
     try {
+      setError(null);
       if (isEditing && currentRecipeId !== null) {
         const updateData: UpdateRecipeDTO = {
           name: newRecipe.name,
@@ -162,18 +123,40 @@ const RecipePage: React.FC = () => {
           servings: newRecipe.servings,
         };
         const updatedRecipe = await updateRecipe(currentRecipeId, updateData);
-        setRecipes(recipes.map((recipe) => (recipe.recipeId === updatedRecipe.recipeId ? updatedRecipe : recipe)));
+        setAllRecipes(allRecipes.map((recipe) => (recipe.recipeId === updatedRecipe.recipeId ? updatedRecipe : recipe)));
+        if (customImageUrl) {
+          setCustomImageUrls((prev) => {
+            const newCustomImageUrls = { ...prev, [updatedRecipe.recipeId]: customImageUrl };
+            localStorage.setItem("customImageUrls", JSON.stringify(newCustomImageUrls));
+            return newCustomImageUrls;
+          });
+        }
         setIsEditing(false);
         setCurrentRecipeId(null);
       } else {
-        const createdRecipe = await createRecipe(newRecipe as RecipeDTO);
-        setRecipes([...recipes, createdRecipe]);
+        const recipeToCreate: RecipeDTO = {
+          recipeId: 0,
+          name: newRecipe.name!,
+          description: newRecipe.description || "",
+          categoryId: newRecipe.categoryId!,
+          categoryName: "",
+          cookingTime: newRecipe.cookingTime!,
+          servings: newRecipe.servings!,
+        };
+        const createdRecipe = await createRecipe(recipeToCreate);
+        setAllRecipes([...allRecipes, createdRecipe]);
+        if (customImageUrl) {
+          setCustomImageUrls((prev) => {
+            const newCustomImageUrls = { ...prev, [createdRecipe.recipeId]: customImageUrl };
+            localStorage.setItem("customImageUrls", JSON.stringify(newCustomImageUrls));
+            return newCustomImageUrls;
+          });
+        }
       }
       setNewRecipe({ name: "", description: "", categoryId: 0, cookingTime: 0, servings: 0 });
-      fetchRecipes();
-    } catch (err) {
-      alert(isEditing ? "Không thể cập nhật công thức" : "Không thể thêm công thức");
-      console.error(err);
+      setCustomImageUrl("");
+    } catch (err: any) {
+      setError(isEditing ? "Không thể cập nhật công thức" : "Không thể thêm công thức");
     }
   };
 
@@ -181,45 +164,62 @@ const RecipePage: React.FC = () => {
     if (window.confirm("Bạn có chắc muốn xóa công thức này?")) {
       try {
         await deleteRecipe(id);
-        fetchRecipes();
-      } catch (err) {
-        alert("Không thể xóa công thức");
-        console.error(err);
+        setAllRecipes(allRecipes.filter((recipe) => recipe.recipeId !== id));
+        setCustomImageUrls((prev) => {
+          const newCustomImageUrls = { ...prev };
+          delete newCustomImageUrls[id];
+          localStorage.setItem("customImageUrls", JSON.stringify(newCustomImageUrls));
+          return newCustomImageUrls;
+        });
+      } catch (err: any) {
+        setError("Không thể xóa công thức");
       }
     }
   };
 
   const editRecipe = (recipe: RecipeDTO) => {
     setNewRecipe({ ...recipe });
+    setCustomImageUrl(customImageUrls[recipe.recipeId] || getImageUrl(recipe.recipeId));
     setIsEditing(true);
     setCurrentRecipeId(recipe.recipeId);
   };
 
-  const handleFilterChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string | number>
-  ) => {
-    const { name, value } = e.target;
-    setTempFilters((prev) => ({
-      ...prev,
-      [name!]: value === "" ? undefined : typeof value === "string" && !isNaN(Number(value)) ? Number(value) : value,
-    }));
+  const getImageUrl = (recipeId: number): string => {
+    if (customImageUrls[recipeId]) {
+      return customImageUrls[recipeId];
+    }
+    const images = recipeImages[recipeId];
+    return images && images.length > 0
+      ? images[0].imageUrl ?? "https://picsum.photos/300"
+      : "https://picsum.photos/300";
   };
 
-  const applyFilters = () => {
-    setFilters((prev) => ({
-      ...prev,
-      ...tempFilters,
-      PageNumber: 1,
-    }));
-    fetchRecipes();
+  const handleImageUpload = async () => {
+    if (!selectedRecipeId || filesToUpload.length === 0) {
+      setError("Vui lòng chọn ít nhất một hình ảnh để tải lên.");
+      return;
+    }
+
+    const validationError = validateFiles(filesToUpload);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    try {
+      const uploadedImages = await uploadRecipeImages(selectedRecipeId, filesToUpload);
+      setRecipeImages((prev) => ({
+        ...prev,
+        [selectedRecipeId]: [...(prev[selectedRecipeId] || []), ...uploadedImages],
+      }));
+      setOpenUploadDialog(false);
+      setFilesToUpload([]);
+    } catch (err: any) {
+      setError("Không thể tải lên hình ảnh");
+    }
   };
 
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, page: number) => {
-    setFilters((prev) => ({ ...prev, PageNumber: page }));
-    fetchRecipes();
-  };
-
-  const validateFiles = (files: File[]) => {
+  const validateFiles = (files: File[]): string | null => {
     const maxSize = 5 * 1024 * 1024; // 5MB
     for (const file of files) {
       if (!file.type.startsWith("image/")) {
@@ -232,75 +232,29 @@ const RecipePage: React.FC = () => {
     return null;
   };
 
-  const handleImageUpload = async () => {
-    if (!selectedRecipeId || filesToUpload.length === 0) {
-      alert("Vui lòng chọn ít nhất một hình ảnh để tải lên.");
-      return;
-    }
-
-    if (!recipes.some((recipe) => recipe.recipeId === selectedRecipeId)) {
-      alert("Recipe ID không hợp lệ. Vui lòng thử lại.");
-      return;
-    }
-
-    const validationError = validateFiles(filesToUpload);
-    if (validationError) {
-      alert(validationError);
-      return;
-    }
-
-    try {
-      console.log("Uploading files for recipeId:", selectedRecipeId);
-      console.log("Files to upload:", filesToUpload);
-
-      const formData = new FormData();
-      formData.append("recipeId", selectedRecipeId.toString());
-      filesToUpload.forEach((file, index) => {
-        formData.append("files", file);
-        console.log(`Appending file ${index + 1}:`, file.name, file.type, file.size);
-      });
-
-      for (let pair of (formData as any).entries()) {
-        console.log(`FormData entry: ${pair[0]}`, pair[1]);
-      }
-
-      const response = await uploadRecipeImages(selectedRecipeId, filesToUpload);
-      console.log("Upload successful, response:", response);
-
-      setRecipeImages((prev) => ({
-        ...prev,
-        [selectedRecipeId]: [...(prev[selectedRecipeId] || []), ...response],
-      }));
-      setOpenUploadDialog(false);
-      setFilesToUpload([]);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Không thể tải lên hình ảnh";
-      console.error("Upload error:", err);
-      alert(`Lỗi: ${errorMessage}. Vui lòng kiểm tra console và network tab để biết thêm chi tiết.`);
-    }
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    console.log("Changing to page:", value);
+    setPageNumber(value);
   };
 
-  const handleDeleteImage = async (recipeId: number, imageId: number) => {
-    if (window.confirm("Bạn có chắc muốn xóa hình ảnh này?")) {
-      try {
-        await deleteRecipeImage(imageId);
-        setRecipeImages((prev) => ({
-          ...prev,
-          [recipeId]: prev[recipeId]?.filter((image) => image.recipeImageId !== imageId) || [],
-        }));
-      } catch (err) {
-        alert("Không thể xóa hình ảnh");
-        console.error(err);
-      }
-    }
+  const handlePageSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const size = Math.min(parseInt(e.target.value) || 6, 20);
+    console.log("New pageSize:", size);
+    setPageSize(size);
+    setPageNumber(1);
   };
 
   return (
     <Layout title="Quản lý công thức" subtitle="Xem và quản lý các công thức">
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold", textAlign: "center" }}>
-          Thêm hoặc Cập nhật Công thức
+          {isEditing ? "Cập nhật Công thức" : "Thêm Công thức Mới"}
         </Typography>
+        {error && (
+          <Typography color="error" sx={{ mb: 2, textAlign: "center" }}>
+            {error}
+          </Typography>
+        )}
         <Grid container spacing={2} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -349,6 +303,29 @@ const RecipePage: React.FC = () => {
               onChange={(e) => setNewRecipe({ ...newRecipe, servings: Number(e.target.value) })}
             />
           </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="URL Hình ảnh (tùy chọn)"
+              value={customImageUrl}
+              onChange={(e) => setCustomImageUrl(e.target.value)}
+              placeholder="Ví dụ: https://example.com/image.jpg"
+            />
+          </Grid>
+          {customImageUrl && (
+            <Grid item xs={12}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Xem trước hình ảnh:
+              </Typography>
+              <CardMedia
+                component="img"
+                height="100"
+                image={customImageUrl || "https://picsum.photos/300"}
+                alt="Preview"
+                sx={{ objectFit: "contain" }}
+              />
+            </Grid>
+          )}
         </Grid>
         <Button
           onClick={addRecipe}
@@ -359,107 +336,25 @@ const RecipePage: React.FC = () => {
           {isEditing ? "Cập nhật công thức" : "Thêm công thức"}
         </Button>
 
-        <Typography variant="h5" sx={{ mb: 2, fontWeight: "bold" }}>
-          Bộ lọc
-        </Typography>
+        {/* Điều khiển phân trang */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={12} sm={6}>
             <TextField
-              fullWidth
-              label="Mô tả"
-              name="Description"
-              value={tempFilters.Description || ""}
-              onChange={handleFilterChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              label="Category ID"
-              name="CategoryId"
+              label="Số công thức mỗi trang"
               type="number"
-              value={tempFilters.CategoryId || ""}
-              onChange={handleFilterChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <FormControl fullWidth>
-              <InputLabel>Order By</InputLabel>
-              <Select
-                name="OrderBy"
-                value={tempFilters.OrderBy || ""}
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">Không sắp xếp</MenuItem>
-                <MenuItem value="name">Theo tên</MenuItem>
-                <MenuItem value="cookingTime">Theo thời gian nấu</MenuItem>
-                <MenuItem value="servings">Theo khẩu phần</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              inputProps={{ min: 1 }}
               fullWidth
-              label="Thời gian nấu tối thiểu"
-              name="CookingTime.Min"
-              type="number"
-              value={tempFilters["CookingTime.Min"] || ""}
-              onChange={handleFilterChange}
             />
           </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField
-              fullWidth
-              label="Thời gian nấu tối đa"
-              name="CookingTime.Max"
-              type="number"
-              value={tempFilters["CookingTime.Max"] || ""}
-              onChange={handleFilterChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField
-              fullWidth
-              label="Khẩu phần tối thiểu"
-              name="Servings.Min"
-              type="number"
-              value={tempFilters["Servings.Min"] || ""}
-              onChange={handleFilterChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField
-              fullWidth
-              label="Khẩu phần tối đa"
-              name="Servings.Max"
-              type="number"
-              value={tempFilters["Servings.Max"] || ""}
-              onChange={handleFilterChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <FormControl fullWidth>
-              <InputLabel>Combine With</InputLabel>
-              <Select
-                name="CombineWith"
-                value={tempFilters.CombineWith ?? ""}
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">Không chọn</MenuItem>
-                <MenuItem value={0}>0</MenuItem>
-                <MenuItem value={1}>1</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12}>
-            <Button
-              onClick={applyFilters}
-              variant="contained"
+          <Grid item xs={12} sm={6} sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Pagination
+              count={Math.ceil(totalItems / pageSize)}
+              page={pageNumber}
+              onChange={handlePageChange}
               color="primary"
-              sx={{ width: "100%", "&:hover": { backgroundColor: "#1976d2" } }}
-            >
-              Áp dụng bộ lọc
-            </Button>
+            />
           </Grid>
         </Grid>
 
@@ -467,18 +362,39 @@ const RecipePage: React.FC = () => {
           <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
             <CircularProgress />
           </Box>
-        ) : error ? (
-          <Typography color="error">{error}</Typography>
         ) : (
-          <>
-            <Grid container spacing={3}>
-              {recipes.length === 0 ? (
-                <Typography>Không có công thức nào để hiển thị.</Typography>
-              ) : (
-                recipes.map((recipe) => (
-                  <Grid item xs={12} sm={6} md={4} key={recipe.recipeId}>
-                    <Card sx={{ borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
-                      <CardContent>
+          <Grid container spacing={3}>
+            {recipes.length === 0 ? (
+              <Typography>Không có công thức nào để hiển thị.</Typography>
+            ) : (
+              recipes.map((recipe) => (
+                <Grid item xs={12} sm={6} md={4} key={recipe.recipeId}>
+                  <Card
+                    sx={{
+                      borderRadius: "16px",
+                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+                      minHeight: "450px",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <CardMedia
+                      component="img"
+                      height="300"
+                      image={getImageUrl(recipe.recipeId)}
+                      alt={`Recipe ${recipe.name}`}
+                      sx={{ objectFit: "cover" }}
+                    />
+                    <CardContent
+                      sx={{
+                        flexGrow: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        padding: "16px",
+                      }}
+                    >
+                      <Box>
                         <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, color: "#424242" }}>
                           {recipe.name}
                         </Typography>
@@ -490,81 +406,46 @@ const RecipePage: React.FC = () => {
                         </Typography>
                         <Chip label={`Khẩu phần: ${recipe.servings}`} color="primary" size="small" />
                         <Chip
-                          label={`Category ID: ${recipe.categoryId}`}
+                          label={`Category: ${recipe.categoryName || recipe.categoryId}`}
                           color="secondary"
                           size="small"
                           sx={{ ml: 1 }}
                         />
-                        <Box sx={{ mt: 2 }}>
-                          <Typography variant="subtitle1">Hình ảnh:</Typography>
-                          <ImageList sx={{ width: 300, height: 150 }} cols={3} rowHeight={100}>
-                            {recipeImages[recipe.recipeId]?.map((image) => (
-                              <ImageListItem key={image.recipeImageId}>
-                                <img
-                                  src={image.imageUrl || ""}
-                                  alt={recipe.name ?? ""}
-                                  loading="lazy"
-                                  style={{ objectFit: "cover", width: "100%", height: "100%" }}
-                                />
-                                <Button
-                                  onClick={() => handleDeleteImage(recipe.recipeId, image.recipeId)}
-                                  color="secondary"
-                                  variant="outlined"
-                                  size="small"
-                                  sx={{ mt: 1 }}
-                                >
-                                  Xóa
-                                </Button>
-                              </ImageListItem>
-                            ))}
-                          </ImageList>
+                      </Box>
+                      <Grid container spacing={1} sx={{ mt: 2 }}>
+                        <Grid item>
+                          <Button onClick={() => editRecipe(recipe)} color="primary" variant="outlined">
+                            Chỉnh sửa
+                          </Button>
+                        </Grid>
+                        <Grid item>
+                          <Button
+                            onClick={() => deleteRecipeHandler(recipe.recipeId)}
+                            color="secondary"
+                            variant="outlined"
+                          >
+                            Xóa
+                          </Button>
+                        </Grid>
+                        <Grid item>
                           <Button
                             onClick={() => {
                               setSelectedRecipeId(recipe.recipeId);
                               setOpenUploadDialog(true);
                             }}
-                            variant="outlined"
                             color="primary"
-                            sx={{ mt: 2 }}
+                            variant="outlined"
                           >
-                            Tải Lên Hình Ảnh
+                            Tải lên ảnh
                           </Button>
-                        </Box>
-                        <Grid container spacing={1} sx={{ mt: 2 }}>
-                          <Grid item>
-                            <Button
-                              onClick={() => editRecipe(recipe)}
-                              color="primary"
-                              variant="outlined"
-                            >
-                              Chỉnh sửa
-                            </Button>
-                          </Grid>
-                          <Grid item>
-                            <Button
-                              onClick={() => deleteRecipeHandler(recipe.recipeId)}
-                              color="secondary"
-                              variant="outlined"
-                            >
-                              Xóa
-                            </Button>
-                          </Grid>
                         </Grid>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))
-              )}
-            </Grid>
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-              <Pagination
-                count={totalPages}
-                page={filters.PageNumber}
-                onChange={handlePageChange}
-                color="primary"
-              />
-            </Box>
-          </>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            )}
+          </Grid>
         )}
 
         <Dialog open={openUploadDialog} onClose={() => setOpenUploadDialog(false)}>
@@ -588,10 +469,7 @@ const RecipePage: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenUploadDialog(false)}>Hủy</Button>
-            <Button
-              onClick={handleImageUpload}
-              disabled={filesToUpload.length === 0}
-            >
+            <Button onClick={handleImageUpload} disabled={filesToUpload.length === 0}>
               Tải Lên
             </Button>
           </DialogActions>

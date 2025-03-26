@@ -290,7 +290,7 @@ export interface ProfileGoalDTO {
   healthProfileId: number;
   healthGoalId: number;
   startDate: string; // ISO date string
-  endDate?: string | null; // ISO date string
+  endDate?: string; // ISO date string
   healthGoalName?: string | null;
   healthProfileName?: string | null;
 }
@@ -404,7 +404,7 @@ export interface UpdateProfileGoalDTO {
   healthProfileId: number;
   healthGoalId: number;
   startDate: string; // ISO date string
-  endDate?: string | null; // ISO date string
+  endDate?: string; // ISO date string
 }
 
 // UpdateRecipeDTO

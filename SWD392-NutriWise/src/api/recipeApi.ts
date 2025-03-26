@@ -1,8 +1,9 @@
 // src/api/recipeApi.ts
 import apiClient from "./apiClient";
-import { RecipeDTO, UpdateRecipeDTO } from "../types/types"; // Import từ types.ts
+import { RecipeDTO, UpdateRecipeDTO } from "../types/types";
 import { AxiosResponse } from "axios";
 
+// Lấy tất cả công thức với các tham số lọc
 export const getAllRecipes = async (params?: {
   PageNumber?: number;
   PageSize?: number;
@@ -16,11 +17,11 @@ export const getAllRecipes = async (params?: {
   CombineWith?: number;
 }): Promise<AxiosResponse<RecipeDTO[]>> => {
   const response = await apiClient.get("/Recipe/all-recipes", { params });
-  return response; // Trả về toàn bộ response thay vì response.data
+  return response; // Trả về toàn bộ response để người dùng xử lý
 };
 
-
-export const getRecipeById = async (id: number): Promise<RecipeDTO> => { // id: string -> number
+// Lấy công thức theo ID
+export const getRecipeById = async (id: number): Promise<RecipeDTO> => {
   try {
     const response = await apiClient.get(`/Recipe/recipe-by-id/${id}`);
     return response.data;
@@ -29,7 +30,8 @@ export const getRecipeById = async (id: number): Promise<RecipeDTO> => { // id: 
   }
 };
 
-export const createRecipe = async (recipe: RecipeDTO): Promise<RecipeDTO> => { // Sử dụng RecipeDTO
+// Tạo mới một công thức
+export const createRecipe = async (recipe: RecipeDTO): Promise<RecipeDTO> => {
   try {
     const response = await apiClient.post("/Recipe/recipe-creation", recipe);
     return response.data;
@@ -38,7 +40,8 @@ export const createRecipe = async (recipe: RecipeDTO): Promise<RecipeDTO> => { /
   }
 };
 
-export const updateRecipe = async (id: number, recipe: UpdateRecipeDTO): Promise<RecipeDTO> => { // id: string -> number, dùng UpdateRecipeDTO
+// Cập nhật công thức
+export const updateRecipe = async (id: number, recipe: UpdateRecipeDTO): Promise<RecipeDTO> => {
   try {
     const response = await apiClient.put(`/Recipe/recipe-updation/${id}`, recipe);
     return response.data;
@@ -47,7 +50,8 @@ export const updateRecipe = async (id: number, recipe: UpdateRecipeDTO): Promise
   }
 };
 
-export const deleteRecipe = async (id: number): Promise<void> => { // id: string -> number
+// Xóa công thức
+export const deleteRecipe = async (id: number): Promise<void> => {
   try {
     await apiClient.delete(`/Recipe/recipe-deletion/${id}`);
   } catch (error) {
@@ -55,6 +59,7 @@ export const deleteRecipe = async (id: number): Promise<void> => { // id: string
   }
 };
 
+// Tìm kiếm công thức theo tên
 export const searchRecipe = async (query: string): Promise<RecipeDTO[]> => {
   try {
     const response = await apiClient.get(`/Recipe/recipe-search?name=${query}`);
@@ -64,7 +69,8 @@ export const searchRecipe = async (query: string): Promise<RecipeDTO[]> => {
   }
 };
 
-export const getRecipesByCategory = async (categoryId: number): Promise<RecipeDTO[]> => { // categoryId: string -> number
+// Lấy công thức theo danh mục
+export const getRecipesByCategory = async (categoryId: number): Promise<RecipeDTO[]> => {
   try {
     const response = await apiClient.get(`/Recipe/recipe-by-category-id/${categoryId}`);
     return response.data;
