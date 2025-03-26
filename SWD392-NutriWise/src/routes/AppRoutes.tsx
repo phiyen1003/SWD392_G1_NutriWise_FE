@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import HomePage from "../pages/Home/HomePage";
 import AdminPage from "../pages/Admin/AdminPage";
@@ -45,6 +45,7 @@ interface JwtPayload {
 const CallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [tempUserId, setTempUserId] = useState<string>("");
   const [tempEmail, setTempEmail] = useState<string>("");
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -52,48 +53,55 @@ const CallbackPage: React.FC = () => {
   useEffect(() => {
     const fetchCallbackData = async () => {
       try {
+        setLoading(true);
         const user = auth.currentUser;
         if (!user) {
-          throw new Error("No user is currently signed in.");
+          throw new Error("Bạn chưa đăng nhập. Vui lòng đăng nhập để tiếp tục.");
         }
 
         const idToken = await user.getIdToken();
         const data: GoogleCallbackResponse = await googleCallback(idToken);
-        const { token, email, isRegistered, profileComplete } = data;
+        const { token, email, isRegistered, userId } = data;
 
         if (!token || !email) {
-          throw new Error("No token or email in callback response.");
+          throw new Error("Không tìm thấy token hoặc email trong phản hồi từ server.");
         }
 
-        const decoded: JwtPayload = JSON.parse(atob(token.split(".")[1]));
-        const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
-
-        if (!isRegistered || !profileComplete) {
+        if (!isRegistered) {
           localStorage.setItem("tempToken", token);
-          localStorage.setItem("tempEmail", email);
+          localStorage.setItem("tempEmail", email || "");
           localStorage.setItem("tempUserId", userId);
           setTempUserId(userId);
           setTempEmail(email);
           setShowAuthModal(true);
         } else {
+          // Lưu ý: Nên cân nhắc sử dụng HttpOnly cookie thay vì localStorage để tăng bảo mật
           localStorage.setItem("token", token);
-          localStorage.setItem("email", email);
+          localStorage.setItem("email", email || "");
           localStorage.setItem("userId", userId);
           navigate("/");
         }
       } catch (err) {
-        setError("Failed to process Google callback: " + (err instanceof Error ? err.message : "Unknown error"));
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Đã xảy ra lỗi không xác định khi xử lý đăng nhập Google."
+        );
         console.error("Callback error details:", err);
         setTimeout(() => navigate("/"), 3000);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchCallbackData();
   }, [navigate]);
 
-  const handleCompleteProfile = async (data: CompleteProfileRequest) => {
+  const handleCompleteProfile = useCallback(async (data: CompleteProfileRequest) => {
     try {
+      setLoading(true);
       const response = await completeProfile(data);
+      // Lưu ý: Nên cân nhắc sử dụng HttpOnly cookie thay vì localStorage
       localStorage.setItem("token", localStorage.getItem("tempToken") || "");
       localStorage.setItem("email", data.email || "");
       localStorage.setItem("userId", data.userId);
@@ -101,12 +109,26 @@ const CallbackPage: React.FC = () => {
       localStorage.removeItem("tempEmail");
       localStorage.removeItem("tempUserId");
       setShowAuthModal(false);
-      alert(response.message || "Profile completed successfully!");
-      navigate("/"); // Redirect về trang chủ
+      alert(response.message || "Hoàn thiện hồ sơ thành công!");
+      navigate("/");
     } catch (err) {
-      setError("Failed to complete profile: " + (err instanceof Error ? err.message : "Unknown error"));
+      setError(
+        err instanceof Error
+          ? `Không thể hoàn thiện hồ sơ: ${err.message}`
+          : "Đã xảy ra lỗi không xác định khi hoàn thiện hồ sơ."
+      );
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: "20px" }}>
+        <p>Đang xử lý đăng nhập...</p>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -123,7 +145,7 @@ const CallbackPage: React.FC = () => {
             cursor: "pointer",
           }}
         >
-          Back to Home
+          Quay lại trang chủ
         </button>
       </div>
     );
@@ -131,7 +153,7 @@ const CallbackPage: React.FC = () => {
 
   return (
     <>
-      <div>Processing Google callback...</div>
+      <div>Đang xử lý đăng nhập Google...</div>
       <AuthModal
         open={showAuthModal}
         onClose={() => setShowAuthModal(false)}
@@ -149,7 +171,7 @@ const AppRoutes: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/auth/callback" element={<CallbackPage />} /> {/* Sửa để dùng CallbackPage */}
+        <Route path="/auth/callback" element={<CallbackPage />} />
         <Route path="/nutriwise/dashboard" element={<AdminPage />} />
         <Route path="/nutriwise/users" element={<UsersPage />} />
         <Route path="/nutriwise/nutrition-plans" element={<NutritionPlansPage />} />

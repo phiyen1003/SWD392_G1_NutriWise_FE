@@ -1,5 +1,4 @@
-// src/pages/admin/NutritionPlansPage.tsx
-import React from "react";
+import React, { useEffect, useState, ChangeEvent } from "react";
 import {
   Container,
   Typography,
@@ -14,6 +13,7 @@ import {
   DialogActions,
   IconButton,
   CircularProgress,
+  Pagination,
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 import Layout from "../../components/Admin/Layout";
@@ -27,111 +27,112 @@ import {
 import { getAllMeals } from "../../api/mealApi";
 import { getAllRecipeHealthGoals } from "../../api/recipeHealthGoalApi";
 import { getRecipeById } from "../../api/recipeApi";
-import { HealthGoalDTO, MealDTO, RecipeHealthGoalDTO, RecipeDTO } from "../../types/types"; // Import từ types.ts
+import { HealthGoalDTO, MealDTO, RecipeHealthGoalDTO, RecipeDTO } from "../../types/types";
 
 interface HealthPlan extends HealthGoalDTO {
   users: number;
 }
 
 const NutritionPlansPage: React.FC = () => {
-  const [plans, setPlans] = React.useState<HealthPlan[]>([]);
-  const [loading, setLoading] = React.useState<boolean>(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [openDialog, setOpenDialog] = React.useState<boolean>(false);
-  const [newPlan, setNewPlan] = React.useState<Partial<HealthGoalDTO>>({ name: "", description: "" });
-  const [editPlan, setEditPlan] = React.useState<HealthPlan | null>(null);
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [currentPage, setCurrentPage] = React.useState<number>(1);
-  const [recipesPerPlan, setRecipesPerPlan] = React.useState<{ [key: number]: RecipeDTO[] }>({});
-  const itemsPerPage = 6;
+  const [plans, setPlans] = useState<HealthPlan[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
+  const [newPlan, setNewPlan] = useState<Partial<HealthGoalDTO>>({ name: "", description: "" });
+  const [editPlan, setEditPlan] = useState<HealthPlan | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pageSize] = useState<number>(6);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [recipesPerPlan, setRecipesPerPlan] = useState<{ [key: number]: RecipeDTO[] }>({});
 
-  const fetchHealthPlans = async (query?: string) => {
+  const fetchHealthPlans = async (query: string = "", page: number = 1) => {
     try {
       setLoading(true);
-      const healthGoals = query ? await searchHealthGoal(query) : await getAllHealthGoals();
+      setError(null);
+
+      const params = {
+        PageNumber: page,
+        PageSize: pageSize,
+        OrderBy: "name",
+      };
+
+      let healthGoals: HealthGoalDTO[] = [];
+      let total: number = 0;
+
+      if (query.trim()) {
+        const searchResponse = await searchHealthGoal(query.trim());
+        healthGoals = searchResponse.data || [];
+        total = searchResponse.total || 0;
+      } else {
+        const getAllResponse = await getAllHealthGoals(params);
+        healthGoals = getAllResponse.data || [];
+        total = getAllResponse.total || 0;
+      }
+
       const meals = await getAllMeals();
-      const allRecipeHealthGoals = await getAllRecipeHealthGoals();
+      const recipeHealthGoalsResponse = await getAllRecipeHealthGoals({
+        PageNumber: 1,
+        PageSize: 1000,
+      });
+      const allRecipeHealthGoals = recipeHealthGoalsResponse.data || [];
 
       const healthGoalUserMap: { [key: number]: Set<number> } = {};
-      healthGoals.forEach((goal) => {
+      healthGoals.forEach((goal: HealthGoalDTO) => {
         healthGoalUserMap[goal.healthGoalId] = new Set();
       });
 
       meals.forEach((meal: MealDTO) => {
-        const relatedRhgs = allRecipeHealthGoals.filter((rhg) => rhg.recipeId === meal.recipeId);
-        relatedRhgs.forEach((rhg) => {
+        const relatedRhgs = allRecipeHealthGoals.filter((rhg: RecipeHealthGoalDTO) => rhg.recipeId === meal.recipeId);
+        relatedRhgs.forEach((rhg: RecipeHealthGoalDTO) => {
           if (healthGoalUserMap[rhg.healthGoalId]) {
             healthGoalUserMap[rhg.healthGoalId].add(meal.healthProfileId);
           }
         });
       });
 
-      const plansWithUsers: HealthPlan[] = healthGoals.map((goal) => ({
+      const plansWithUsers: HealthPlan[] = healthGoals.map((goal: HealthGoalDTO) => ({
         ...goal,
         users: healthGoalUserMap[goal.healthGoalId]?.size || 0,
       }));
 
       setPlans(plansWithUsers);
-    } catch (err) {
-      setError("Đã xảy ra lỗi khi tải danh sách kế hoạch dinh dưỡng");
+      setTotalItems(total);
+    } catch (err: any) {
+      setError("Đã xảy ra lỗi khi tải danh sách kế hoạch dinh dưỡng: " + (err.message || "Lỗi không xác định"));
+      console.error(err);
+      setPlans([]);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
   };
-  // const fetchHealthPlans = async (query: string = "") => {
-  //   try {
-  //     setLoading(true);
-  //     const healthGoals = query.trim() ? await searchHealthGoal(query.trim()) : await getAllHealthGoals();
-  //     const meals = await getAllMeals();
-  //     const allRecipeHealthGoals = await getAllRecipeHealthGoals();
-  
-  //     const healthGoalUserMap: { [key: number]: Set<number> } = {};
-  //     healthGoals.forEach((goal) => {
-  //       healthGoalUserMap[goal.healthGoalId] = new Set();
-  //     });
-  
-  //     meals.forEach((meal: MealDTO) => {
-  //       const relatedRhgs = allRecipeHealthGoals.filter((rhg) => rhg.recipeId === meal.recipeId);
-  //       relatedRhgs.forEach((rhg) => {
-  //         if (healthGoalUserMap[rhg.healthGoalId]) {
-  //           healthGoalUserMap[rhg.healthGoalId].add(meal.healthProfileId);
-  //         }
-  //       });
-  //     });
-  
-  //     const plansWithUsers: HealthPlan[] = healthGoals.map((goal) => ({
-  //       ...goal,
-  //       users: healthGoalUserMap[goal.healthGoalId]?.size || 0,
-  //     }));
-  
-  //     setPlans(plansWithUsers);
-  //   } catch (err) {
-  //     setError("Đã xảy ra lỗi khi tải danh sách kế hoạch dinh dưỡng");
-  //     console.error(err); // Thêm log để debug
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+
   const fetchRecipesForPlan = async (healthGoalId: number) => {
-    if (recipesPerPlan[healthGoalId]) return; // Tránh gọi API nếu đã có dữ liệu
+    if (recipesPerPlan[healthGoalId]) return;
     try {
-      const recipeHealthGoals = await getAllRecipeHealthGoals();
-      const relatedRhgs = recipeHealthGoals.filter((rhg) => rhg.healthGoalId === healthGoalId);
-      const recipeIds = relatedRhgs.map((rhg) => rhg.recipeId);
-      const recipes = await Promise.all(recipeIds.map((id) => getRecipeById(id)));
+      const recipeHealthGoalsResponse = await getAllRecipeHealthGoals({
+        PageNumber: 1,
+        PageSize: 1000,
+      });
+      const recipeHealthGoals = recipeHealthGoalsResponse.data || [];
+      const relatedRhgs = recipeHealthGoals.filter((rhg: RecipeHealthGoalDTO) => rhg.healthGoalId === healthGoalId);
+      const recipeIds = relatedRhgs.map((rhg: RecipeHealthGoalDTO) => rhg.recipeId);
+      const recipes = await Promise.all(recipeIds.map((id: number) => getRecipeById(id)));
       setRecipesPerPlan((prev) => ({ ...prev, [healthGoalId]: recipes }));
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Lỗi khi lấy công thức cho Health Goal ${healthGoalId}:`, err);
+      setRecipesPerPlan((prev) => ({ ...prev, [healthGoalId]: [] }));
     }
   };
 
-  React.useEffect(() => {
-    fetchHealthPlans();
-  }, []);
+  useEffect(() => {
+    fetchHealthPlans(searchQuery, pageNumber);
+  }, [pageNumber]);
 
   const handleCreatePlan = async () => {
     if (!newPlan.name) {
-      alert("Tên kế hoạch không được để trống");
+      setError("Tên kế hoạch không được để trống");
       return;
     }
     try {
@@ -139,8 +140,10 @@ const NutritionPlansPage: React.FC = () => {
       setPlans([...plans, { ...createdPlan, users: 0 }]);
       setOpenDialog(false);
       setNewPlan({ name: "", description: "" });
-    } catch (err) {
-      alert("Không thể tạo kế hoạch mới");
+      fetchHealthPlans(searchQuery, pageNumber);
+    } catch (err: any) {
+      setError("Không thể tạo kế hoạch mới: " + (err.message || "Lỗi không xác định"));
+      console.error(err);
     }
   };
 
@@ -154,8 +157,10 @@ const NutritionPlansPage: React.FC = () => {
         setPlans(plans.map((plan) => (plan.healthGoalId === updatedPlan.healthGoalId ? { ...updatedPlan, users: plan.users } : plan)));
         setEditPlan(null);
         setOpenDialog(false);
-      } catch (err) {
-        alert("Không thể cập nhật kế hoạch");
+        fetchHealthPlans(searchQuery, pageNumber);
+      } catch (err: any) {
+        setError("Không thể cập nhật kế hoạch: " + (err.message || "Lỗi không xác định"));
+        console.error(err);
       }
     }
   };
@@ -165,23 +170,24 @@ const NutritionPlansPage: React.FC = () => {
       try {
         await deleteHealthGoal(id);
         setPlans(plans.filter((plan) => plan.healthGoalId !== id));
-      } catch (err) {
-        alert("Không thể xóa kế hoạch");
+        fetchHealthPlans(searchQuery, pageNumber);
+      } catch (err: any) {
+        setError("Không thể xóa kế hoạch: " + (err.message || "Lỗi không xác định"));
+        console.error(err);
       }
     }
   };
 
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
     const query = event.target.value;
     setSearchQuery(query);
-    setCurrentPage(1); // Reset về trang đầu khi tìm kiếm
-    fetchHealthPlans(query);
+    setPageNumber(1);
+    fetchHealthPlans(query, 1);
   };
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentPlans = plans.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(plans.length / itemsPerPage);
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPageNumber(value);
+  };
 
   return (
     <Layout title="Kế hoạch dinh dưỡng" subtitle="Quản lý các kế hoạch dinh dưỡng">
@@ -208,10 +214,10 @@ const NutritionPlansPage: React.FC = () => {
         ) : (
           <>
             <Grid container spacing={3}>
-              {currentPlans.length === 0 ? (
+              {plans.length === 0 ? (
                 <Typography>Không có kế hoạch nào để hiển thị.</Typography>
               ) : (
-                currentPlans.map((plan) => (
+                plans.map((plan) => (
                   <Grid item xs={12} md={4} key={plan.healthGoalId}>
                     <Card sx={{ p: 3, borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
@@ -260,37 +266,19 @@ const NutritionPlansPage: React.FC = () => {
                 ))
               )}
             </Grid>
-            {/* Phân trang */}
-            {totalPages > 1 && (
+            {totalItems > 0 && (
               <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-                <Button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  Trước
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <Button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    variant={currentPage === page ? "contained" : "outlined"}
-                    sx={{ mx: 1 }}
-                  >
-                    {page}
-                  </Button>
-                ))}
-                <Button
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                >
-                  Sau
-                </Button>
+                <Pagination
+                  count={Math.ceil(totalItems / pageSize)}
+                  page={pageNumber}
+                  onChange={handlePageChange}
+                  color="primary"
+                />
               </Box>
             )}
           </>
         )}
 
-        {/* Dialog để tạo/chỉnh sửa kế hoạch */}
         <Dialog open={openDialog} onClose={() => { setOpenDialog(false); setEditPlan(null); }}>
           <DialogTitle>{editPlan ? "Chỉnh sửa kế hoạch" : "Tạo kế hoạch mới"}</DialogTitle>
           <DialogContent>
@@ -323,7 +311,7 @@ const NutritionPlansPage: React.FC = () => {
             <Button
               onClick={editPlan ? handleUpdatePlan : handleCreatePlan}
               variant="contained"
-              disabled={!editPlan && !newPlan.name} // Vô hiệu hóa nếu không có tên khi tạo mới
+              disabled={!editPlan && !newPlan.name}
             >
               {editPlan ? "Cập nhật" : "Tạo"}
             </Button>

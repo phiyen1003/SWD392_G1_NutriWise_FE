@@ -1,3 +1,4 @@
+// src/pages/IngredientsPage.tsx
 import React, { useEffect, useState, ChangeEvent } from "react";
 import {
   Box,
@@ -13,7 +14,6 @@ import {
   Grid,
   Switch,
   FormControlLabel,
-  Pagination,
 } from "@mui/material";
 import Layout from "../../components/Admin/Layout";
 import {
@@ -48,15 +48,9 @@ const IngredientsPage: React.FC = () => {
     setPageSize(pageSize);
   }
 
-  // State cho phân trang
-  const [pageNumber, setPageNumber] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
-  const [totalItems, setTotalItems] = useState<number>(0); // Tổng số nguyên liệu (giả định API trả về)
-
-  // Load danh sách nguyên liệu khi component mount hoặc khi pageNumber/pageSize thay đổi
+  // Load danh sách nguyên liệu khi component mount
   useEffect(() => {
     fetchIngredients();
-<<<<<<< Updated upstream
   }, [currentPage]);
 
   const fetchIngredients = async () => {
@@ -65,25 +59,6 @@ const IngredientsPage: React.FC = () => {
       const paginationHeader = JSON.parse(response.headers["x-pagination"]);
       setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
       setIngredients(response.data);
-=======
-  }, [pageNumber, pageSize]);
-
-  const fetchIngredients = async () => {
-    try {
-      const data = await getAllIngredients({
-        pageNumber,
-        pageSize,
-        orderBy: "name", // Sắp xếp theo tên, có thể thay đổi
-        // isAllergen: true, // Uncomment nếu muốn lọc theo dị ứng
-        // combineWith: 1, // Uncomment nếu cần
-      });
-      setIngredients(data);
-
-      // Giả định API không trả về totalItems, cần cập nhật logic nếu API trả về metadata
-      // Ví dụ: Nếu API trả về { items: IngredientDTO[], totalItems: number }
-      // thì cần setTotalItems(response.totalItems);
-      setTotalItems(data.length > 0 ? pageNumber * pageSize + 1 : 0); // Tạm tính, cần API hỗ trợ
->>>>>>> Stashed changes
     } catch (err) {
       setError("Đã xảy ra lỗi khi tải danh sách nguyên liệu");
       console.error(err);
@@ -112,16 +87,17 @@ const IngredientsPage: React.FC = () => {
         setIsEditing(false);
         setCurrentIngredientId(null);
       } else {
+        // Tạo mới nguyên liệu với CreateIngredientDTO
         const createdIngredient = await createIngredient({
           name: newIngredient.name,
           description: newIngredient.description,
           isAllergen: newIngredient.isAllergen,
-          ingredientId: 0, // Không cần thiết cho API tạo mới, nhưng giữ để khớp DTO
+          ingredientId: 0
         });
         setIngredients([...ingredients, createdIngredient]);
       }
       setNewIngredient({ name: "", description: "", isAllergen: false });
-      fetchIngredients(); // Làm mới danh sách sau khi thêm/cập nhật
+      fetchIngredients();
     } catch (err) {
       alert(isEditing ? "Không thể cập nhật nguyên liệu" : "Không thể thêm nguyên liệu");
       console.error(err);
@@ -133,7 +109,6 @@ const IngredientsPage: React.FC = () => {
       try {
         await deleteIngredient(id);
         setIngredients(ingredients.filter((ingredient) => ingredient.ingredientId !== id));
-        fetchIngredients(); // Làm mới danh sách sau khi xóa
       } catch (err) {
         alert("Không thể xóa nguyên liệu");
         console.error(err);
@@ -164,16 +139,6 @@ const IngredientsPage: React.FC = () => {
       ...prev,
       isAllergen: e.target.checked,
     }));
-  };
-
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setPageNumber(value);
-  };
-
-  const handlePageSizeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const size = parseInt(e.target.value) || 10;
-    setPageSize(size);
-    setPageNumber(1); // Reset về trang 1 khi thay đổi kích thước trang
   };
 
   return (
@@ -231,28 +196,6 @@ const IngredientsPage: React.FC = () => {
             >
               {isEditing ? "Cập nhật nguyên liệu" : "Thêm nguyên liệu"}
             </Button>
-          </Grid>
-        </Grid>
-
-        {/* Điều khiển phân trang */}
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Số nguyên liệu mỗi trang"
-              type="number"
-              value={pageSize}
-              onChange={handlePageSizeChange}
-              inputProps={{ min: 1 }}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <Pagination
-              count={Math.ceil(totalItems / pageSize)} // Tính số trang dựa trên tổng số item
-              page={pageNumber}
-              onChange={handlePageChange}
-              color="primary"
-            />
           </Grid>
         </Grid>
 

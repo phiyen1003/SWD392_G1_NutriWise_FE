@@ -11,7 +11,6 @@ import {
   TextField,
   CircularProgress,
   Box,
-  Pagination,
 } from "@mui/material";
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -54,50 +53,23 @@ const MealsPage: React.FC = () => {
     setTotalPages(totalPages);
   }
 
-  // State cho phân trang
-  const [pageNumber, setPageNumber] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(6); // Mặc định 6 để hiển thị 2 dòng 3 cột
-  const [totalItems, setTotalItems] = useState<number>(0); // Tổng số bữa ăn
-
   useEffect(() => {
     const savedCustomImageUrls = localStorage.getItem("customImageUrls");
     if (savedCustomImageUrls) {
       setCustomImageUrls(JSON.parse(savedCustomImageUrls));
     }
     fetchMeals();
-<<<<<<< Updated upstream
   }, [currentPage]);
-=======
-  }, [pageNumber, pageSize]);
->>>>>>> Stashed changes
 
   const fetchMeals = async () => {
     try {
       setLoading(true);
-<<<<<<< Updated upstream
       const mealsData = await apiClient.get(`/Meal/all-meals?PageNumber=${currentPage}&PageSize=${3}`);
       const paginationHeader = JSON.parse(mealsData.headers["x-pagination"]);
       setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize, paginationHeader.TotalPages);
       setMeals(mealsData.data);
 
       const imagePromises = mealsData.data.map(async (meal: MealDTO) => {
-=======
-      const mealsData = await getAllMeals({
-        pageNumber,
-        pageSize,
-        orderBy: "mealDate", // Sắp xếp theo ngày, có thể thay đổi
-        // mealDateMin: "2025-01-01", // Uncomment nếu muốn lọc theo ngày tối thiểu
-        // mealDateMax: "2025-12-31", // Uncomment nếu muốn lọc theo ngày tối đa
-        // mealTime: "Dinner", // Uncomment nếu muốn lọc theo thời gian bữa ăn
-        // combineWith: 1, // Uncomment nếu cần
-      });
-      setMeals(mealsData);
-
-      // Giả định API không trả về totalItems, cần cập nhật nếu API hỗ trợ
-      setTotalItems(mealsData.length > 0 ? pageNumber * pageSize + 1 : 0); // Tạm tính
-
-      const imagePromises = mealsData.map(async (meal) => {
->>>>>>> Stashed changes
         const images = await getRecipeImagesByRecipeId(meal.recipeId);
         return { recipeId: meal.recipeId, images };
       });
@@ -154,7 +126,6 @@ const MealsPage: React.FC = () => {
         setRecipeImages((prev) => ({ ...prev, [createdMeal.recipeId]: images }));
       }
       setNewMeal({ healthProfileId: 0, mealDate: "", mealTime: "", recipeId: 0, imageUrl: "" });
-      fetchMeals(); // Làm mới danh sách sau khi thêm/cập nhật
     } catch (err) {
       alert(isEditing ? "Không thể cập nhật bữa ăn" : "Không thể thêm bữa ăn");
       console.error(err);
@@ -175,7 +146,6 @@ const MealsPage: React.FC = () => {
             return newCustomImageUrls;
           });
         }
-        fetchMeals(); // Làm mới danh sách sau khi xóa
       } catch (err) {
         alert("Không thể xóa bữa ăn");
         console.error(err);
@@ -193,7 +163,7 @@ const MealsPage: React.FC = () => {
   const getImageUrl = (recipeId: number): string => {
     if (customImageUrls[recipeId]) {
       console.log("Using customImageUrl:", customImageUrls[recipeId]);
-      return customImageUrls[recipeId] || "https://picsum.photos/300";
+      return customImageUrls[recipeId] || "https://picsum.photos/300"; // Đảm bảo ảnh có kích thước phù hợp
     }
     if (isEditing || (!isEditing && newMeal.recipeId === recipeId && newMeal.imageUrl)) {
       console.log("Using newMeal.imageUrl:", newMeal.imageUrl);
@@ -203,17 +173,7 @@ const MealsPage: React.FC = () => {
     console.log("Using recipeImages:", images);
     return images && images.length > 0
       ? images[0].imageUrl ?? "https://picsum.photos/300"
-      : "https://picsum.photos/300";
-  };
-
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setPageNumber(value);
-  };
-
-  const handlePageSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const size = parseInt(e.target.value) || 6;
-    setPageSize(size);
-    setPageNumber(1); // Reset về trang 1 khi thay đổi kích thước trang
+      : "https://picsum.photos/300"; // Sử dụng ảnh có kích thước cố định
   };
 
   return (
@@ -294,28 +254,6 @@ const MealsPage: React.FC = () => {
           {isEditing ? "Cập nhật bữa ăn" : "Thêm bữa ăn"}
         </Button>
 
-        {/* Điều khiển phân trang */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              label="Số bữa ăn mỗi trang"
-              type="number"
-              value={pageSize}
-              onChange={handlePageSizeChange}
-              inputProps={{ min: 1 }}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <Pagination
-              count={Math.ceil(totalItems / pageSize)} // Tính số trang dựa trên tổng số item
-              page={pageNumber}
-              onChange={handlePageChange}
-              color="primary"
-            />
-          </Grid>
-        </Grid>
-
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
             <CircularProgress />
@@ -331,7 +269,6 @@ const MealsPage: React.FC = () => {
                 <Stack direction={'row'} flex={1}>
                   <Button
                     sx={{
-<<<<<<< Updated upstream
                       position: "relative",
                       padding: '4px',
                       border: '1px solid #ddd',
@@ -339,18 +276,10 @@ const MealsPage: React.FC = () => {
                       minWidth: '60px',
                       minHeight: '60px',
                       alignSelf: 'center'
-=======
-                      borderRadius: "16px",
-                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
-                      minHeight: "450px",
-                      display: "flex",
-                      flexDirection: "column",
->>>>>>> Stashed changes
                     }}
                     onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage <= 1}
                   >
-<<<<<<< Updated upstream
                     <ArrowBackIosNewIcon fontSize="small" />
                   </Button>
                   {meals.map((meal) => (
@@ -433,60 +362,6 @@ const MealsPage: React.FC = () => {
                   </Button>
                 </Stack>
               </>
-=======
-                    <CardMedia
-                      component="img"
-                      height="300"
-                      width="100%"
-                      image={getImageUrl(meal.recipeId)}
-                      alt={`Meal ${meal.mealId}`}
-                      sx={{
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                    />
-                    <CardContent
-                      sx={{
-                        flexGrow: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        padding: "16px",
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="h6" sx={{ mb: 1, fontWeight: 600, color: "#424242" }}>
-                          Meal ID: {meal.mealId}
-                        </Typography>
-                        <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
-                          Ngày: {meal.mealDate}
-                        </Typography>
-                        <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
-                          Giờ: {meal.mealTime}
-                        </Typography>
-                        <Chip label={`Recipe ID: ${meal.recipeId}`} color="primary" size="small" />
-                      </Box>
-                      <Grid container spacing={1} sx={{ mt: 2 }}>
-                        <Grid item>
-                          <Button onClick={() => editMeal(meal)} color="primary" variant="outlined">
-                            Chỉnh sửa
-                          </Button>
-                        </Grid>
-                        <Grid item>
-                          <Button
-                            onClick={() => deleteMealHandler(meal.mealId)}
-                            color="secondary"
-                            variant="outlined"
-                          >
-                            Xóa
-                          </Button>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))
->>>>>>> Stashed changes
             )}
           </Grid>
         )}

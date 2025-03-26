@@ -1,26 +1,32 @@
-// src/api/recipeHealthGoalApi.ts
 import apiClient from "./apiClient";
 import { RecipeHealthGoalDTO, UpdateRecipeHealthGoalDTO } from "../types/types";
 
-// Lấy tất cả RecipeHealthGoal với phân trang
-export const getAllRecipeHealthGoals = async (params: {
+interface GetAllRecipeHealthGoalsParams {
   PageNumber: number;
   PageSize: number;
   OrderBy?: string;
-}): Promise<RecipeHealthGoalDTO[]> => {
+}
+
+interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+}
+
+export const getAllRecipeHealthGoals = async (params: GetAllRecipeHealthGoalsParams): Promise<PaginatedResponse<RecipeHealthGoalDTO>> => {
   try {
-    const { PageNumber, PageSize, OrderBy } = params;
-    if (PageNumber < 1 || PageSize < 1) {
-      throw new Error("PageNumber and PageSize must be greater than 0");
-    }
-    const response = await apiClient.get("/RecipeHealthGoal/all-recipe-health-goals", { params });
-    return response.data;
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || "Failed to fetch recipe health goals";
-    throw new Error(errorMessage);
+    const response = await apiClient.get<RecipeHealthGoalDTO[]>("/RecipeHealthGoal/all-recipe-health-goals", {
+      params: {
+        PageNumber: params.PageNumber,
+        PageSize: params.PageSize,
+        OrderBy: params.OrderBy,
+      },
+    });
+    const total = parseInt(response.headers["x-total-count"] || "0", 10);
+    return { data: response.data, total };
+  } catch (error) {
+    throw new Error("Failed to fetch recipe health goals");
   }
 };
-
 // Lấy RecipeHealthGoal theo ID
 export const getById = async (id: number): Promise<RecipeHealthGoalDTO> => {
   try {
