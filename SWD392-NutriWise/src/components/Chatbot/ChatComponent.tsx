@@ -1,10 +1,10 @@
 import apiClient from "../../api/apiClient";
 import { ChatMessageDTO, ChatSessionDTO } from "../../types/types";
-import { Stack, Button, Text, Textarea, Box } from "@chakra-ui/react";
+import { Stack, Button, Text, Textarea, Box, Skeleton, SkeletonText } from "@chakra-ui/react";
 import ArrowUpwardOutlinedIcon from '@mui/icons-material/ArrowUpwardOutlined';
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { redirect, useNavigate, useParams } from "react-router-dom";
 import { Toast } from "../ToastComponent";
 
 interface ChatProps {
@@ -22,14 +22,16 @@ const initialState: ChatMessageDTO = {
 export const Chat = ({ setSessions }: ChatProps) => {
     // const userId = localStorage.getItem('userId');
     const userId = 1;
-    
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
     const { sessionId } = useParams();
-    
+
     const [messages, setMessages] = useState<ChatMessageDTO[]>([initialState]);
+    const [aiMessages, setAiMessages] = useState<ChatMessageDTO[]>([initialState]);
     const [prompt, setPrompt] = useState<string>('');
+    const [isWaiting, setIsWating] = useState<boolean>(false);
     const [toastInfo, setToastInfo] = useState<{ open: boolean; message: string }>({
         open: false,
         message: "",
@@ -39,74 +41,95 @@ export const Chat = ({ setSessions }: ChatProps) => {
         if (sessionId) {
             try {
                 const response = await apiClient.get(`/Chat/session/${sessionId}?includeMessages=true`);
-                console.log('session chat component: ', response.data);
                 setMessages(response.data.messages);
             } catch (error) {
                 console.error("Failed to fetch messages", error);
             }
-
         } else {
             setMessages([]);
         }
     }, [sessionId])
 
-
     useEffect(() => {
         if (sessionId) {
+            // fetchSessions();
             fetchMessages();
-            console.log('messages sent chat component: ', messages);
         }
-    }, [sessionId, fetchMessages])
+        console.log('messages sent chat component: ', messages);
+    }, [])
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    const handleSend = useCallback(async () => {
+    const getContent = () => {
         if (!prompt.trim()) return;
         const content = prompt;
         console.log(content);
         setPrompt(() => '');
+
+        return content;
+    }
+
+
+    const createSession = async () => {
+        setIsWating(true);
         try {
-            let newSessionId = Number(sessionId ?? 0);
-
-            if (!sessionId) {
-                const response = await apiClient.post(`/Chat/session`, {
-                    userId: userId,
-                    title: content.slice(0, 20)
-                })
-                setSessions((prev) => [response.data, ...prev]);
-                newSessionId = response.data.chatSessionId;
-
-                navigate(`${newSessionId}`);
-            }
-
-            const responseMessage = await apiClient.post(`/Chat/message?userId=${userId}`, {
-                chatSessionId: newSessionId,
-                content: content
+            const response = await apiClient.post(`/Chat/session`, {
+                userId: userId,
+                title: getContent()!.slice(0, 20)
             })
-
-            const userMessage = responseMessage.data.userMessage;
-            const aiMessage = responseMessage.data.aiResponse;
-
-            setMessages([...messages, {
-                chatSessionId: newSessionId,
-                chatMessageId: userMessage.chatMessageId,
-                isUserMessage: userMessage.isUserMessage,
-                sentTime: userMessage.sentTime,
-                content: userMessage.content
-
-            }, {
-                chatSessionId: newSessionId,
-                chatMessageId: aiMessage.chatMessageId,
-                isUserMessage: aiMessage.isUserMessage,
-                sentTime: aiMessage.sentTime,
-                content: aiMessage.content
-            }]);
+            setSessions((prev) => [response.data, ...prev]);
+            return response.data.chatSessionId
         } catch (err) {
             setToastInfo({ open: true, message: "NutriWise AI đang có lỗi ><" });
+        } finally {
+            setIsWating(false);
         }
-    }, [prompt, sessionId, setSessions, navigate])
+    }
+
+    const sendMessage = async (newSesId?: Number) => {
+        const content = getContent();
+
+        const newUserMessage: ChatMessageDTO = {
+            chatMessageId: Date.now(), // Temporary ID
+            chatSessionId: Number(sessionId) || 0,
+            isUserMessage: true,
+            sentTime: new Date().toISOString(),
+            content
+        };
+        setMessages(prev => [...prev, newUserMessage]);
+        setIsWating(true);
+        try {
+            if (newSesId) {
+                const responseMessage = await apiClient.post(`/Chat/message?userId=${userId}`, {
+                    chatSessionId: newSesId,
+                    content: content
+                })
+
+                const aiMessage = responseMessage.data.aiResponse;
+
+                setMessages(prev => [...prev, aiMessage]);
+            } else {
+                console.log('sessionId not found', sessionId)
+            }
+        } catch (err) {
+            setToastInfo({ open: true, message: "NutriWise AI đang có lỗi ><" });
+        } finally {
+            setIsWating(false);
+        }
+    }
+
+    const handleSend = useCallback(async () => {
+        if (!sessionId) {
+            const newSesId = await createSession();
+            await sendMessage(newSesId);
+            navigate(`${newSesId}`);
+        } else {
+            await sendMessage(Number(sessionId));
+        }
+    }, [prompt, sessionId, setSessions, navigate]);
+
 
     return (
         <Stack width="full" height="full" p={4}>
@@ -135,6 +158,11 @@ export const Chat = ({ setSessions }: ChatProps) => {
                         </Box>
                     ))
                 ) : null}
+
+                {isWaiting && (
+                    <SkeletonText noOfLines={3} gap={4} maxWidth={'75%'} />
+                )}
+
                 <div ref={messagesEndRef} />
             </Stack>
 

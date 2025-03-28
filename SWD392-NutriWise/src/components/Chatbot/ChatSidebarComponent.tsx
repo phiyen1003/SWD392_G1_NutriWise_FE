@@ -28,6 +28,7 @@ export const ChatSidebar = ({
     const [sessionId, setSessionId] = useState<number>();
 
     const navigate = useNavigate();
+    console.log('Sessions chat sidebar: ',sessions);
 
     return (
         <>

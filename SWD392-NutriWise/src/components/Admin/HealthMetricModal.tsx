@@ -29,7 +29,7 @@ const initialState = {
     measurementDate: '',
     bloodPressure: '',
     bmi: 0,
-    cholesterol: ''
+    cholesterol: null
 }
 
 export default function HealthMetricModal({
@@ -45,8 +45,7 @@ export default function HealthMetricModal({
         bmi: yup.number().typeError('BMI phải là số').positive('BMI phải lớn hơn 0').required('Chỉ số BMI không được để trống')
             .min(15, 'Chỉ số BMI hợp lệ từ 15 - 50').max(50, 'Chỉ số BMI hợp lệ từ 15 - 50'),
         bloodPressure: yup.string().required("Huyết áp không được để trống").matches(RegExp(`^\\b(29[0-9]|2[0-9][0-9]|[01]?[0-9][0-9]?)\\/(29[0-9]|2[0-9][0-9]|[01]?[0-9][0-9]?)$`), 'Vui lòng nhập chỉ số huyết áp hợp lệ'),
-        cholesterol: yup.number().typeError('Cholesterol phải là số').required("Cholesterol không được để trống").min(50, "Giá trị cholesterol quá thấp")
-            .max(500, "Giá trị cholesterol quá cao"),
+        cholesterol: yup.string().required("Cholesterol không được để trống").matches(RegExp(`^(50|[5-9][0-9]|[1-4][0-9]{2}|500)$`), 'Vui lòng nhập cholesterol hợp lệ (50 - 500)'),
         measurementDate: yup.string().required("Ngày đo không được để trống"),
     })
 
@@ -71,7 +70,6 @@ export default function HealthMetricModal({
     };
 
     const onSubmit: SubmitHandler<HealthMetricDTO> = async (formData) => {
-
         if (!formData) return;
 
         try {
@@ -131,6 +129,7 @@ export default function HealthMetricModal({
                 >
                     <h2>{title}</h2>
                     <form onSubmit={handleSubmit(onSubmit)}>
+                        <input type="hidden" value={profId} />
                         <TextField
                             fullWidth
                             label="Chỉ số BMI"
@@ -165,7 +164,6 @@ export default function HealthMetricModal({
                                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                                     <DatePicker
                                         label="Ngày đo"
-                                        // defaultValue={}
                                         value={field.value ? dayjs(field.value) : null}
                                         onChange={(date) => setValue("measurementDate", date ? date.format('YYYY-MM-DD') : '')}
                                         slotProps={{

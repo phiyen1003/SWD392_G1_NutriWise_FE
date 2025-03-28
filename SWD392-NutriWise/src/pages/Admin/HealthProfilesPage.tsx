@@ -3,7 +3,7 @@ import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Button, T
 import { VStack, Text, Spinner } from "@chakra-ui/react";
 import { Delete } from "@mui/icons-material";
 
-import { HealthProfileDTO } from "../../types/types";
+import { HealthProfileDTO, ProfileDTO } from "../../types/types";
 import apiClient from "../../api/apiClient";
 
 import Layout from "../../components/Admin/Layout";
@@ -16,7 +16,7 @@ import { Link } from "react-router-dom";
 
 const HealthProfilesPage: React.FC = () => {
   const [profiles, setProfiles] = useState<HealthProfileDTO[]>([]);
-  const [selectedHealthProfile, setSelectedHealthProfile] = useState<HealthProfileDTO>();
+  const [selectedHealthProfile, setSelectedHealthProfile] = useState<ProfileDTO>();
   const [dataFetched, setDataFetched] = useState<boolean>(false);
 
 
@@ -39,6 +39,8 @@ const HealthProfilesPage: React.FC = () => {
   const [order, setOrder] = useState<"asc" | "desc">("asc");
   const [query, setQuery] = useState<string>('');
 
+  const token = localStorage.getItem('token');
+
   const initialState: HealthProfileDTO = {
     healthProfileId: 0,
     fullName: '',
@@ -57,12 +59,17 @@ const HealthProfilesPage: React.FC = () => {
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get(`/HealthProfile/all-health-profiles?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}`);
-      const paginationHeader = JSON.parse(response.headers["x-pagination"]);
-      console.log(paginationHeader);
-      setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
+      const response = await apiClient.get(`/admin/Dashboard/healthprofiles?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      // const paginationHeader = JSON.parse(response.headers["x-pagination"]);
+      // console.log(paginationHeader);
+      // setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
       setProfiles(response.data);
     } catch (error) {
+      console.error(error);
       onToast(500, true, 'Có lỗi xảy ra trong quá trình xử lý');
     } finally {
       setDataFetched(true);
@@ -81,8 +88,37 @@ const HealthProfilesPage: React.FC = () => {
     setInformation(info);
   }
 
-  const handleOpen = (healthProf: HealthProfileDTO, action: "create" | "update") => {
-    setSelectedHealthProfile(healthProf);
+  const getProfile = async (id: number) => {
+    const profile = await apiClient.get(`/admin/Dashboard/profile/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    return profile.data
+  }
+
+  const handleOpen = async (healthProf: HealthProfileDTO, action: "create" | "update") => {
+    if (action === 'update') {
+      const profile = await getProfile(healthProf.healthProfileId);
+      setSelectedHealthProfile(profile);
+    } else {
+      const profile: ProfileDTO = {
+        email: '',
+        userId: 0,
+        username: '',
+        fullName: '',
+        healthProfile: {
+          healthProfileId: 0,
+          height: 0,
+          weight: 0,
+          dateOfBirth: '',
+          fullName: '',
+          gender: ''
+        }
+      }
+      setSelectedHealthProfile(profile);
+    }
     setModalAction(action);
     setOpen(true);
   };
@@ -112,7 +148,7 @@ const HealthProfilesPage: React.FC = () => {
       try {
         const response = await apiClient.delete(`/HealthProfile/health-profile-deletion/${profileId}`);
         if (response.status === 200) {
-          onToast(200, true, 'Đã xóa thành phần dị ứng');
+          onToast(200, true, 'Đã xóa thành công');
 
           if (profiles.length === 1 && currentPage > 1) {
             setCurrentPage(prev => prev - 1);
@@ -121,7 +157,7 @@ const HealthProfilesPage: React.FC = () => {
           }
         }
       } catch (e) {
-        onToast(statusCode, true, 'Có lỗi xảy ra trong quá trình xóa thành phần dị ứng');
+        onToast(statusCode, true, 'Có lỗi xảy ra trong quá trình xử lý');
       } finally {
         setLoadingId(null)
       }
@@ -244,7 +280,7 @@ const HealthProfilesPage: React.FC = () => {
                 <HealthProfileModal
                   open={open}
                   action={modalAction}
-                  healthProfile={selectedHealthProfile!}
+                  profile={selectedHealthProfile!}
                   title={modalAction === 'create' ? 'Thêm hồ sơ sức khỏe' : 'Chỉnh sửa hồ sơ sức khỏe'}
                   setHealthProfiles={setProfiles}
                   handleClose={() => setOpen(false)} />
