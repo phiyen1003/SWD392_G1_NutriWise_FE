@@ -2,19 +2,39 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { Box, Button, TableContainer, Table, TableCell, TableHead, TableRow, TableBody, Paper, TableSortLabel } from "@mui/material";
-import { Card, Text, NumberInput, Stack, VStack, HStack } from "@chakra-ui/react";
+import { Card, Text, NumberInput, Stack, VStack, HStack, Input, Field } from "@chakra-ui/react";
 import { Delete } from "@mui/icons-material";
 
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import dayjs, { Dayjs } from "dayjs";
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 import { HealthMetricDTO } from "../../types/types";
+
 
 import { Toast } from "../../components/ToastComponent";
 import { CustomPagination } from "../PagingComponent";
 import HealthMetricModal from "./HealthMetricModal";
 
 import apiClient from "../../api/apiClient";
+import { Controller, useForm } from "react-hook-form";
+import * as yup from "yup";
+
+const schema = yup.object().shape({
+    minBmi: yup.number(),
+    maxBmi: yup.number(),
+    cholesterol: yup.string(),
+    bloodPressure: yup.string(),
+    minMeasurementDate: yup.string(),
+    maxMeasurementDate: yup.string()
+})
+
+type FormData = yup.InferType<typeof schema>
+
 
 export default function HealthMetricCard() {
+    const { register, handleSubmit, watch, formState: { errors }, control, getValues, setValue, getFieldState } = useForm<FormData>({})
     const [metrics, setMetrics] = useState<HealthMetricDTO[]>([]);
     const [loadingId, setLoadingId] = useState<number | null>(null);
     const [open, setOpen] = useState<boolean>(false);
@@ -67,11 +87,11 @@ export default function HealthMetricCard() {
         setOrderBy(property);
     }
 
-    const fetchMetrics = useCallback(async () => {
+    const fetchMetrics = useCallback(async (values?: any) => {
         if (!profileId) return;
-
         try {
-            const response = await apiClient.get(`/HealthMetric/health-metric-by-health-profile-id/${parseInt(profileId)}?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}`);
+
+            const response = await apiClient.get(`/HealthMetric/health-metric-by-health-profile-id/${parseInt(profileId)}?OrderBy=${orderBy} ${order}&PageNumber=${currentPage}&Bmi.Min=${values?.minBmi?.toString() || ''}&Bmi.Max=${values?.maxBmi?.toString() || ''}&BloodPressure=${values?.bloodPressure ?? ''}&Cholesterol=${values?.cholesterol ?? ''}&MeasurementDate.Min=${values?.minMeasurementDate ?? ''}&MeasurementDate.Max=${values?.maxMeasurementDate ?? ''}`);
             const paginationHeader = JSON.parse(response.headers["x-pagination"]);
             setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize);
             setMetrics(response.data);
@@ -84,18 +104,18 @@ export default function HealthMetricCard() {
         }
     }, [order, orderBy, currentPage]);
 
-    const handleSearch = async (value: string) => {
-        try {
-            if (value !== '') {
-                const response = await apiClient.get(`/Allergen/allergen-search?name=${value}`);
-                setMetrics(response.data);
-            } else {
-                fetchMetrics()
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
+    // const handleSearch = async (value: string) => {
+    //     try {
+    //         if (value !== '') {
+    //             const response = await apiClient.get(`/Allergen/allergen-search?name=${value}`);
+    //             setMetrics(response.data);
+    //         } else {
+    //             fetchMetrics()
+    //         }
+    //     } catch (e) {
+    //         console.error(e);
+    //     }
+    // };
 
     const onDeleteMetric = async (metricId: number) => {
         setLoadingId(metricId);
@@ -120,18 +140,24 @@ export default function HealthMetricCard() {
     }
 
     useEffect(() => {
-        fetchMetrics();
+        const values = getValues();
+        values ? fetchMetrics(values) : fetchMetrics();
     }, [order, orderBy, currentPage]);
+
+    const onFilterSubmit = handleSubmit((form) => {
+        if (!form) return;
+        fetchMetrics(form);
+    })
 
     return (
         <>
-            <Toast
-                onClose={() => setOpenToast(false)}
-                information={information}
-                open={openToast}
-                statusCode={statusCode}
-            ></Toast>
             <Card.Body gap={5}>
+                <Toast
+                    onClose={() => setOpenToast(false)}
+                    information={information}
+                    open={openToast}
+                    statusCode={statusCode}
+                ></Toast>
                 <Card.Title>
                     Chỉ số sức khỏe
                 </Card.Title>
@@ -144,43 +170,106 @@ export default function HealthMetricCard() {
                         Tạo chỉ số sức khỏe
                     </Button>
                     <Stack mb={2} mt={5}>
-                        <form>
+                        <form onSubmit={onFilterSubmit}>
                             <Stack direction={"column"} gap={4} mb={2} align={"start"} width="100%">
                                 <HStack gap={4} width="100%">
-                                    <NumberInput.Root flex={1}>
-                                        <NumberInput.Label fontWeight={"bold"}>Min BMI</NumberInput.Label>
-                                        <NumberInput.Input placeholder="Enter BMI" />
-                                    </NumberInput.Root>
-
-                                    <NumberInput.Root flex={1}>
-                                        <NumberInput.Label fontWeight={"bold"}>Max BMI</NumberInput.Label>
-                                        <NumberInput.Input placeholder="Enter BMI" />
-                                    </NumberInput.Root>
-
-                                    <NumberInput.Root flex={1}>
-                                        <NumberInput.Label fontWeight={"bold"}>Blood Pressure</NumberInput.Label>
-                                        <NumberInput.Input placeholder="Enter BP" />
-                                    </NumberInput.Root>
+                                    <Controller
+                                        name="minBmi"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <NumberInput.Root
+                                                flex={1}
+                                                name={field.name}
+                                                value={field.value?.toString()}
+                                                onValueChange={({ value }) => {
+                                                    field.onChange(value)
+                                                }}>
+                                                <NumberInput.Label fontWeight={"bold"}>Min BMI</NumberInput.Label>
+                                                <NumberInput.Input placeholder="Enter BMI" />
+                                            </NumberInput.Root>
+                                        )}
+                                    >
+                                    </Controller>
+                                    <Controller
+                                        name="maxBmi"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <NumberInput.Root
+                                                flex={1}
+                                                name={field.name}
+                                                onValueChange={({ value }) => {
+                                                    field.onChange(value)
+                                                }}>
+                                                <NumberInput.Label fontWeight={"bold"}>Max BMI</NumberInput.Label>
+                                                <NumberInput.Input placeholder="Enter BMI" />
+                                            </NumberInput.Root>
+                                        )}>
+                                    </Controller>
+                                    <Field.Root flex={1}>
+                                        <Field.Label>Blood Pressure</Field.Label>
+                                        <Input {...register('bloodPressure')} placeholder="Enter blood pressure" />
+                                    </Field.Root>
+                                    <Controller
+                                        name="cholesterol"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <NumberInput.Root
+                                                flex={1}
+                                                name={field.value}
+                                                onValueChange={({ value }) => {
+                                                    field.onChange(value)
+                                                }}
+                                            >
+                                                <NumberInput.Label fontWeight={"bold"}>Cholesterol</NumberInput.Label>
+                                                <NumberInput.Input placeholder="Enter Cholesterol" />
+                                            </NumberInput.Root>
+                                        )}
+                                    >
+                                    </Controller>
                                 </HStack>
 
                                 <HStack gap={4} width="100%">
-                                    <NumberInput.Root flex={1}>
-                                        <NumberInput.Label fontWeight={"bold"}>Min Cholesterol</NumberInput.Label>
-                                        <NumberInput.Input placeholder="Enter Cholesterol" />
-                                    </NumberInput.Root>
-
-                                    <NumberInput.Root flex={1}>
-                                        <NumberInput.Label fontWeight={"bold"}>Max Cholesterol</NumberInput.Label>
-                                        <NumberInput.Input placeholder="Enter Cholesterol" />
-                                    </NumberInput.Root>
-
-                                    <NumberInput.Root flex={1}>
-                                        <NumberInput.Label fontWeight={"bold"}>Measurement Date</NumberInput.Label>
-                                        <NumberInput.Input type="date" />
-                                    </NumberInput.Root>
+                                    <Controller
+                                        name="minMeasurementDate"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <DatePicker
+                                                    label="Measurement Date ( From )"
+                                                    value={field.value ? dayjs(field.value) : null}
+                                                    onChange={(date) => setValue("minMeasurementDate", date ? date.format('YYYY-MM-DD') : '')}
+                                                    slotProps={{
+                                                        textField: {
+                                                            error: !!errors.minMeasurementDate,
+                                                            helperText: errors.minMeasurementDate?.message
+                                                        }
+                                                    }}
+                                                    disableFuture />
+                                            </LocalizationProvider>
+                                        )}>
+                                    </Controller>
+                                    <Controller
+                                        name="maxMeasurementDate"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <DatePicker
+                                                    label="Measurement Date ( To )"
+                                                    value={field.value ? dayjs(field.value) : null}
+                                                    onChange={(date) => setValue("maxMeasurementDate", date ? date.format('YYYY-MM-DD') : '')}
+                                                    slotProps={{
+                                                        textField: {
+                                                            error: !!errors.maxMeasurementDate,
+                                                            helperText: errors.maxMeasurementDate?.message
+                                                        }
+                                                    }}
+                                                    disableFuture />
+                                            </LocalizationProvider>
+                                        )}>
+                                    </Controller>
                                 </HStack>
                             </Stack>
-                            <Button variant="contained" color="primary">
+                            <Button variant="contained" color="primary" type="submit">
                                 Apply Filters
                             </Button>
                         </form>
@@ -267,20 +356,19 @@ export default function HealthMetricCard() {
                                     />
                                 </Box>
                             </TableContainer>
-
-                            <HealthMetricModal
-                                profId={parseInt(profileId!)}
-                                open={open}
-                                action={modalAction}
-                                handleClose={() => setOpen(false)}
-                                metric={selectedMetric!}
-                                setMetrics={setMetrics}
-                                title={modalAction === 'create' ? "Thêm chỉ số sức khỏe" : "Cập nhật chỉ số sức khỏe"}
-                            />
                         </>
-                    ) : (<Text>Deo co gi</Text>)}
+                    ) : (<Text>Hiện tại chưa có gì</Text>)}
                 </Card.Description>
             </Card.Body >
+            <HealthMetricModal
+                profId={parseInt(profileId!)}
+                open={open}
+                action={modalAction}
+                handleClose={() => setOpen(false)}
+                metric={selectedMetric!}
+                setMetrics={setMetrics}
+                title={modalAction === 'create' ? "Thêm chỉ số sức khỏe" : "Cập nhật chỉ số sức khỏe"}
+            />
         </>
     )
 }

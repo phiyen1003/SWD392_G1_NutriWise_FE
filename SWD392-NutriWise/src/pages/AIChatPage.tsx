@@ -8,8 +8,7 @@ import { ChatSessionDTO } from "../types/types";
 import apiClient from "../api/apiClient";
 
 export default function AIChatPage() {
-    // const userId = localStorage.getItem('userId');
-    const userId = 1;
+    const userId = localStorage.getItem('userId');
     const { sessionId } = useParams();
     
     const [sessions, setSessions] = useState<ChatSessionDTO[]>([]);
@@ -54,6 +53,7 @@ export default function AIChatPage() {
 
     useEffect(() => {
         fetchSessions();
+        console.log(sessions);
     }, [fetchSessions, pageNumber])
 
     return (
@@ -69,7 +69,7 @@ export default function AIChatPage() {
                             sessions={sessions}
                             handleScroll={handleScroll}
                         />
-                        <ProfileButton />
+                        <ProfileButton userId={userId}/>
                     </>
                 ) : (
                     <Stack direction="row" position="absolute" top={4} right={4}>

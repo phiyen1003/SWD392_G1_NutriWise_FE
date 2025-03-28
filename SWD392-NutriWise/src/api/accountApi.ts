@@ -120,6 +120,7 @@ export const googleCallback = async (idToken: string): Promise<GoogleCallbackRes
       idToken,
     });
     const data = response.data;
+    console.log(`idToken : ${idToken}`)
 
     if (data.token && data.isRegistered) {
       localStorage.setItem("token", data.token);

@@ -11,7 +11,8 @@ import { monthlyData } from "../../data/dashboardData"; // Giữ nguyên dữ li
 const AdminPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false); // Thêm trạng thái loading
   const [error, setError] = useState<string | null>(null); // Thêm trạng thái error
-
+  const token = localStorage.getItem('token');
+  console.log('admin token', token);
   // Giữ nguyên dữ liệu tĩnh monthlyData, không fetch API
   const usersData = []; // Giữ trống hoặc mock dữ liệu tĩnh nếu cần (tùy bạn)
   const servicePackagesData = []; // Giữ trống hoặc mock dữ liệu tĩnh nếu cần (tùy bạn)

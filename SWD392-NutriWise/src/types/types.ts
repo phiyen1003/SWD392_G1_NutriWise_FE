@@ -433,3 +433,12 @@ export interface PaginatedResponse<T> {
   data: T[];
   total: number;
 }
+
+// ProfileDTO
+export interface ProfileDTO {
+  userId: number;
+  email: string;
+  username: string;  
+  fullName?: string | null;
+  healthProfile: HealthProfileDTO
+}

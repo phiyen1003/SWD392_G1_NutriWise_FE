@@ -51,7 +51,7 @@ export default function HealthGoalCard() {
                                 </VStack>
                             </Stack>
                         </>
-                    ) : (<Text>Deo co gi</Text>)}
+                    ) : (<Text>Hiện tại chưa có gì</Text>)}
                 </Card.Description>
             </Card.Body>
         </>
