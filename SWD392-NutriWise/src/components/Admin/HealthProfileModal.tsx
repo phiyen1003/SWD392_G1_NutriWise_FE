@@ -6,10 +6,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs, { Dayjs } from "dayjs";
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { NumberInput } from "@chakra-ui/react";
 
-import { HealthProfileDTO, ProfileDTO } from "../../types/types";
-import { createHealthProfile, updateHealthProfile } from "../../api/healthProfileApi";
+import { ProfileDTO } from "../../types/types";
 import { Toast } from "../ToastComponent";
 
 import * as yup from 'yup';
@@ -17,39 +15,43 @@ import { yupResolver } from "@hookform/resolvers/yup"
 
 import { SubmitHandler, useForm, Controller } from "react-hook-form";
 
+export const schema = yup.object().shape({
+    email: yup.string().required('Vui lòng nhập email').email('Vui lòng nhập email hợp lệ'),
+    username: yup.string().required('Vui lòng nhập username').min(2, 'Username ít nhất 2 chữ cái trở lên'),
+    healthProfile: yup.object().shape({
+        fullName: yup.string().required('Vui lòng nhập họ và tên').min(5, 'Họ và tên có ít nhất 5 chữ cái trở lên'),
+        gender: yup.string().required('Vui lòng chọn giới tính'),
+        dateOfBirth: yup.string().required('Vui lòng nhập ngày sinh'),
+        height: yup.number().typeError('Vui lòng nhập chiều cao hợp lệ').required('Vui lòng nhập chiều cao').min(80, 'Vui lòng nhập chiều cao hợp lệ').max(250, 'Vui lòng nhập chiều cao hợp lệ'),
+        weight: yup.number().typeError('Vui lòng nhập cân nặng hợp lệ').required('Vui lòng nhập cân nặng').min(25, 'Vui lòng nhập cân nặng hợp lệ').max(250, 'Vui lòng nhập cân nặng hợp lệ'),
+    })
+})
+
+export interface ToastProps {
+    information: string,
+    statusCode: number,
+    openToast: boolean
+}
+
+export type FormData = yup.InferType<typeof schema>
+
 export default function HealthProfileModal({
     open,
-    action,
     profile,
+    loading,
     title,
+    toast,
     handleClose,
-    setHealthProfiles }
+    onSubmitModal }
     : {
         open: boolean,
-        action: string,
         profile: ProfileDTO,
+        loading: boolean,
         title: string,
+        toast: ToastProps,
         handleClose: () => void,
-        setHealthProfiles: React.Dispatch<React.SetStateAction<HealthProfileDTO[]>>
+        onSubmitModal: SubmitHandler<FormData>
     }) {
-    const [openToast, setOpenToast] = useState<boolean>(false);
-    const [statusCode, setStatusCode] = useState<number>(0);
-    const [information, setInformation] = useState<string>('');
-    const [loading, setLoading] = useState<boolean>(false);
-
-    const schema = yup.object().shape({
-        email: yup.string().required('Vui lòng nhập email').email('Vui lòng nhập email hợp lệ'),
-        username: yup.string().required('Vui lòng nhập username').min(2, 'Username ít nhất 2 chữ cái trở lên'),
-        healthProfile: yup.object().shape({
-            fullName: yup.string().required('Vui lòng nhập họ và tên').min(5, 'Họ và tên có ít nhất 5 chữ cái trở lên'),
-            gender: yup.string().required('Vui lòng chọn giới tính'),
-            dateOfBirth: yup.string().required('Vui lòng nhập ngày sinh'),
-            height: yup.number().typeError('Vui lòng nhập chiều cao hợp lệ').required('Vui lòng nhập chiều cao').min(80, 'Vui lòng nhập chiều cao hợp lệ').max(250, 'Vui lòng nhập chiều cao hợp lệ'),
-            weight: yup.number().typeError('Vui lòng nhập cân nặng hợp lệ').required('Vui lòng nhập cân nặng').min(25, 'Vui lòng nhập cân nặng hợp lệ').max(250, 'Vui lòng nhập cân nặng hợp lệ'),
-        })
-    })
-
-    type FormData = yup.InferType<typeof schema>
 
     const { formState: { errors }, register, handleSubmit, control, setValue, reset } = useForm<FormData>({
         resolver: yupResolver(schema)
@@ -64,58 +66,13 @@ export default function HealthProfileModal({
         }
     }, [profile]);
 
-    const onToast = (status: number, open: boolean, info: string) => {
-        setStatusCode(status);
-        setOpenToast(open);
-        setInformation(info);
-    };
-
-    const onSubmitModal: SubmitHandler<FormData> = async (formData) => {
-        if (!formData) return;
-
-        const profile = formData as ProfileDTO
-        setLoading(true);
-
-        try {
-            let response: HealthProfileDTO | null = null;
-
-            const profId = profile.healthProfile.healthProfileId;
-
-            if (action === "update") {
-                console.log(profile.healthProfile.healthProfileId);
-                console.log('log update in health profile modal');
-                if (!profId) {
-                    throw new Error("Missing healthProfileId for update");
-                }
-                response = await updateHealthProfile(profId, formData.healthProfile);
-            } else if (action === "create") {
-                console.log('log create in health profile modal');
-                console.log('profile create:', profile);
-                response = await createHealthProfile(profile.healthProfile);
-            }
-            if (response) {
-                setHealthProfiles((prev: HealthProfileDTO[]) =>
-                    action === "update"
-                        ? prev.map((a) => (a?.healthProfileId === profId ? response : a))
-                        : [...prev, response]
-                );
-                onToast(200, true, `Hồ sơ sức khỏe mới đã ${action === "update" ? "cập nhật" : "tạo"} thành công.`);
-                handleClose();
-            }
-        } catch (error) {
-            onToast(500, true, "Có lỗi xảy ra trong quá trình xử lý.");
-        } finally {
-            setLoading(false);
-        }
-    }
-
     return (
         <>
             <Toast
-                onClose={() => setOpenToast(false)}
-                information={information}
-                open={openToast}
-                statusCode={statusCode}
+                onClose={() => toast.openToast}
+                information={toast.information}
+                open={toast.openToast}
+                statusCode={toast.statusCode}
             />
 
             <Modal open={open}>
@@ -154,9 +111,9 @@ export default function HealthProfileModal({
                                                 value={field.value}
                                                 onChange={(event) => setValue('healthProfile.gender', event.target.value)}
                                             >
-                                                <FormControlLabel value="male" control={<Radio />} label="Nam" />
-                                                <FormControlLabel value="female" control={<Radio />} label="Nữ" />
-                                                <FormControlLabel value="other" control={<Radio />} label="Khác" />
+                                                <FormControlLabel value="Nam" control={<Radio />} label="Nam" />
+                                                <FormControlLabel value="Nữ" control={<Radio />} label="Nữ" />
+                                                <FormControlLabel value="Khác" control={<Radio />} label="Khác" />
                                             </RadioGroup>
                                             <FormHelperText>{errors.healthProfile?.gender?.message}</FormHelperText>
                                         </FormControl>

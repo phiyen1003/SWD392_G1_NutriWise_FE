@@ -33,7 +33,7 @@ export const ProfileButton = ({ userId }: { userId: Number }) => {
                     <Portal>
                         <Menu.Positioner>
                             <Menu.Content>
-                                <Menu.Item value="profile" onClick={() => navigate(`/nutriwise/profile/${userId}`)}>
+                                <Menu.Item value="profile" onClick={() => navigate(`/nutriwise/profile`)}>
                                     Profile
                                 </Menu.Item>
                                 <Menu.Item value="logout" color="red.500" onClick={handleLogout}>

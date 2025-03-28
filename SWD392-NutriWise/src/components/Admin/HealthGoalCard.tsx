@@ -1,22 +1,26 @@
 import { useEffect, useState } from "react";
 import { HealthGoalDTO } from "../../types/types";
-import { Card, Stack, Text, VStack } from "@chakra-ui/react";
+import { Card, Stack, Text, VStack, SkeletonText } from "@chakra-ui/react";
 import { useParams } from "react-router-dom";
 import { getHealthGoalById } from "../../api/healthGoalApi";
 
 export default function HealthGoalCard() {
     const [goal, setGoal] = useState<HealthGoalDTO>();
+    const [loading, setLoading] = useState<boolean>(false);
 
     const { profileId } = useParams();
 
     const fetchMetrics = async () => {
         if (!profileId) return;
+        setLoading(true);
 
         try {
             const data = await getHealthGoalById(parseInt(profileId));
             setGoal(data);
         } catch (error) {
             console.error("Error fetching health goal:", error);
+        } finally {
+            setLoading(false);
         }
     };
     useEffect(() => {
@@ -25,6 +29,7 @@ export default function HealthGoalCard() {
 
     return (
         <>
+            {!loading ? (
             <Card.Body gap={5}>
                 <Card.Title>
                     Mục tiêu
@@ -54,6 +59,9 @@ export default function HealthGoalCard() {
                     ) : (<Text>Hiện tại chưa có gì</Text>)}
                 </Card.Description>
             </Card.Body>
+            ) : (
+                <SkeletonText noOfLines={3} gap={4} maxWidth={'100vw'} />
+            )}
         </>
     )
 }

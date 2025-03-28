@@ -69,7 +69,7 @@ export default function AIChatPage() {
                             sessions={sessions}
                             handleScroll={handleScroll}
                         />
-                        <ProfileButton userId={userId}/>
+                        <ProfileButton userId={parseInt(userId)}/>
                     </>
                 ) : (
                     <Stack direction="row" position="absolute" top={4} right={4}>
