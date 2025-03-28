@@ -12,27 +12,37 @@ interface PaginatedResponse<T> {
   total: number;
 }
 
-export const getAllRecipeHealthGoals = async (params: GetAllRecipeHealthGoalsParams): Promise<PaginatedResponse<RecipeHealthGoalDTO>> => {
+// Helper function để kiểm tra số dương
+const validatePositiveNumber = (value: number, name: string) => {
+  if (!value || value <= 0) {
+    throw new Error(`Invalid ${name}: ${name} must be a positive number`);
+  }
+};
+
+// Lấy tất cả RecipeHealthGoals với phân trang
+export const getAllRecipeHealthGoals = async (
+  params: GetAllRecipeHealthGoalsParams
+): Promise<PaginatedResponse<RecipeHealthGoalDTO>> => {
   try {
+    const { PageNumber, PageSize, OrderBy } = params;
+    validatePositiveNumber(PageNumber, "PageNumber");
+    validatePositiveNumber(PageSize, "PageSize");
+
     const response = await apiClient.get<RecipeHealthGoalDTO[]>("/RecipeHealthGoal/all-recipe-health-goals", {
-      params: {
-        PageNumber: params.PageNumber,
-        PageSize: params.PageSize,
-        OrderBy: params.OrderBy,
-      },
+      params: { PageNumber, PageSize, OrderBy },
     });
     const total = parseInt(response.headers["x-total-count"] || "0", 10);
     return { data: response.data, total };
-  } catch (error) {
-    throw new Error("Failed to fetch recipe health goals");
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || "Failed to fetch recipe health goals";
+    throw new Error(errorMessage);
   }
 };
+
 // Lấy RecipeHealthGoal theo ID
 export const getById = async (id: number): Promise<RecipeHealthGoalDTO> => {
   try {
-    if (!id || id <= 0) {
-      throw new Error("Invalid ID: ID must be a positive number");
-    }
+    validatePositiveNumber(id, "ID");
     const response = await apiClient.get(`/RecipeHealthGoal/recipe-health-goal-by-id/${id}`);
     return response.data;
   } catch (error: any) {
@@ -45,25 +55,20 @@ export const getById = async (id: number): Promise<RecipeHealthGoalDTO> => {
 // Lấy danh sách RecipeHealthGoal theo RecipeId với phân trang
 export const getByRecipeId = async (
   recipeId: number,
-  params: {
-    PageNumber: number;
-    PageSize: number;
-    OrderBy?: string;
-  }
-): Promise<RecipeHealthGoalDTO[]> => {
+  params: { PageNumber: number; PageSize: number; OrderBy?: string }
+): Promise<PaginatedResponse<RecipeHealthGoalDTO>> => {
   try {
-    if (!recipeId || recipeId <= 0) {
-      throw new Error("Invalid RecipeId: RecipeId must be a positive number");
-    }
+    validatePositiveNumber(recipeId, "RecipeId");
     const { PageNumber, PageSize, OrderBy } = params;
-    if (PageNumber < 1 || PageSize < 1) {
-      throw new Error("PageNumber and PageSize must be greater than 0");
-    }
+    validatePositiveNumber(PageNumber, "PageNumber");
+    validatePositiveNumber(PageSize, "PageSize");
+
     const response = await apiClient.get(
       `/RecipeHealthGoal/recipe-health-goal-by-recipe-id/${recipeId}`,
       { params }
     );
-    return response.data;
+    const total = parseInt(response.headers["x-total-count"] || "0", 10);
+    return { data: response.data, total };
   } catch (error: any) {
     const errorMessage =
       error.response?.data?.message || `Failed to fetch health goals for recipe ${recipeId}`;
@@ -74,25 +79,20 @@ export const getByRecipeId = async (
 // Lấy danh sách RecipeHealthGoal theo HealthGoalId với phân trang
 export const getByHealthGoalId = async (
   healthGoalId: number,
-  params: {
-    PageNumber: number;
-    PageSize: number;
-    OrderBy?: string;
-  }
-): Promise<RecipeHealthGoalDTO[]> => {
+  params: { PageNumber: number; PageSize: number; OrderBy?: string }
+): Promise<PaginatedResponse<RecipeHealthGoalDTO>> => {
   try {
-    if (!healthGoalId || healthGoalId <= 0) {
-      throw new Error("Invalid HealthGoalId: HealthGoalId must be a positive number");
-    }
+    validatePositiveNumber(healthGoalId, "HealthGoalId");
     const { PageNumber, PageSize, OrderBy } = params;
-    if (PageNumber < 1 || PageSize < 1) {
-      throw new Error("PageNumber and PageSize must be greater than 0");
-    }
+    validatePositiveNumber(PageNumber, "PageNumber");
+    validatePositiveNumber(PageSize, "PageSize");
+
     const response = await apiClient.get(
       `/RecipeHealthGoal/recipe-health-goal-by-health-goal-id/${healthGoalId}`,
       { params }
     );
-    return response.data;
+    const total = parseInt(response.headers["x-total-count"] || "0", 10);
+    return { data: response.data, total };
   } catch (error: any) {
     const errorMessage =
       error.response?.data?.message || `Failed to fetch recipes for health goal ${healthGoalId}`;
@@ -105,9 +105,9 @@ export const createRecipeHealthGoal = async (
   recipeHealthGoal: RecipeHealthGoalDTO
 ): Promise<RecipeHealthGoalDTO> => {
   try {
-    if (!recipeHealthGoal.recipeId || !recipeHealthGoal.healthGoalId) {
-      throw new Error("RecipeId and HealthGoalId are required");
-    }
+    validatePositiveNumber(recipeHealthGoal.recipeId, "RecipeId");
+    validatePositiveNumber(recipeHealthGoal.healthGoalId, "HealthGoalId");
+
     const response = await apiClient.post(
       "/RecipeHealthGoal/recipe-health-goal-creation",
       recipeHealthGoal
@@ -125,12 +125,10 @@ export const updateRecipeHealthGoal = async (
   recipeHealthGoal: UpdateRecipeHealthGoalDTO
 ): Promise<RecipeHealthGoalDTO> => {
   try {
-    if (!id || id <= 0) {
-      throw new Error("Invalid ID: ID must be a positive number");
-    }
-    if (!recipeHealthGoal.recipeId || !recipeHealthGoal.healthGoalId) {
-      throw new Error("RecipeId and HealthGoalId are required");
-    }
+    validatePositiveNumber(id, "ID");
+    validatePositiveNumber(recipeHealthGoal.recipeId, "RecipeId");
+    validatePositiveNumber(recipeHealthGoal.healthGoalId, "HealthGoalId");
+
     const response = await apiClient.put(
       `/RecipeHealthGoal/recipe-health-goal-updation/${id}`,
       recipeHealthGoal
@@ -146,9 +144,7 @@ export const updateRecipeHealthGoal = async (
 // Xóa RecipeHealthGoal
 export const deleteRecipeHealthGoal = async (id: number): Promise<void> => {
   try {
-    if (!id || id <= 0) {
-      throw new Error("Invalid ID: ID must be a positive number");
-    }
+    validatePositiveNumber(id, "ID");
     await apiClient.delete(`/RecipeHealthGoal/recipe-health-goal-deletion/${id}`);
   } catch (error: any) {
     const errorMessage =

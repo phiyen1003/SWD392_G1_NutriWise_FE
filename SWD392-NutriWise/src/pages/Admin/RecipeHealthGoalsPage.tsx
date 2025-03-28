@@ -15,26 +15,30 @@ import {
   Button,
   IconButton,
 } from "@mui/material";
-import { Delete as DeleteIcon, Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from "@mui/icons-material";
-import { getAllRecipeHealthGoals, createRecipeHealthGoal, updateRecipeHealthGoal, deleteRecipeHealthGoal } from "../../api/recipeHealthGoalApi";
-import { RecipeHealthGoalDTO, UpdateRecipeHealthGoalDTO } from "../../types/types";
+import {
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+} from "@mui/icons-material";
+import {
+  getAllRecipeHealthGoals,
+  createRecipeHealthGoal,
+  updateRecipeHealthGoal,
+  deleteRecipeHealthGoal,
+} from "../../api/recipeHealthGoalApi";
+import { PaginatedResponse, RecipeHealthGoalDTO, UpdateRecipeHealthGoalDTO } from "../../types/types";
 import Layout from "../../components/Admin/Layout";
 
 const RecipeHealthGoalsPage: React.FC = () => {
   const [goals, setGoals] = useState<RecipeHealthGoalDTO[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // State cho phân trang
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(6);
   const [totalItems, setTotalItems] = useState<number>(0);
-
-  // State cho tạo mới (Create)
   const [newRecipeId, setNewRecipeId] = useState<string>("");
   const [newHealthGoalId, setNewHealthGoalId] = useState<string>("");
-
-  // State cho chỉnh sửa (Update)
   const [editingRecipeHealthGoalId, setEditingRecipeHealthGoalId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<UpdateRecipeHealthGoalDTO>>({});
 
@@ -46,38 +50,44 @@ const RecipeHealthGoalsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getAllRecipeHealthGoals({
+      console.log("Fetching goals with params:", { PageNumber: pageNumber, PageSize: pageSize });
+      const response: PaginatedResponse<RecipeHealthGoalDTO> = await getAllRecipeHealthGoals({
         PageNumber: pageNumber,
         PageSize: pageSize,
         OrderBy: "recipeId",
       });
-      setGoals(data);
-      setTotalItems(data.length > 0 ? pageNumber * pageSize + 1 : 0);
+      console.log("API response:", response);
+      setGoals(response.data);
+      setTotalItems(response.total);
     } catch (error: any) {
-      setError(error.message || "Đã xảy ra lỗi khi tải danh sách mục tiêu sức khỏe công thức");
-      console.error("Error fetching recipe health goals:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch recipe health goals";
+      console.error("Error fetching recipe health goals:", error.response || error);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Xử lý tạo mới (Create)
   const handleCreate = async () => {
-    if (!newRecipeId || !newHealthGoalId) {
-      alert("Vui lòng điền đầy đủ thông tin");
+    const recipeId = Number(newRecipeId);
+    const healthGoalId = Number(newHealthGoalId);
+
+    if (!recipeId || !healthGoalId || recipeId <= 0 || healthGoalId <= 0) {
+      setError("Vui lòng nhập Recipe ID và Health Goal ID là số dương hợp lệ");
       return;
     }
 
     try {
       await createRecipeHealthGoal({
-        recipeHealthGoalId: 0, // ID sẽ được tạo tự động
-        recipeId: Number(newRecipeId),
-        healthGoalId: Number(newHealthGoalId),
-        recipeName: "", // Không cần gửi, backend sẽ tự điền
-        healthGoalName: "", // Không cần gửi, backend sẽ tự điền
+        recipeHealthGoalId: 0,
+        recipeId,
+        healthGoalId,
+        recipeName: "",
+        healthGoalName: "",
       });
       setNewRecipeId("");
       setNewHealthGoalId("");
+      setError(null);
       fetchGoals();
     } catch (error: any) {
       setError(error.message || "Đã xảy ra lỗi khi tạo mục tiêu sức khỏe công thức");
@@ -85,7 +95,6 @@ const RecipeHealthGoalsPage: React.FC = () => {
     }
   };
 
-  // Xử lý chỉnh sửa (Update)
   const handleEdit = (goal: RecipeHealthGoalDTO) => {
     setEditingRecipeHealthGoalId(goal.recipeHealthGoalId);
     setEditForm({
@@ -95,18 +104,19 @@ const RecipeHealthGoalsPage: React.FC = () => {
   };
 
   const handleSaveEdit = async (recipeHealthGoalId: number) => {
-    if (!editForm.recipeId || !editForm.healthGoalId) {
-      alert("Vui lòng điền đầy đủ thông tin");
+    const recipeId = editForm.recipeId;
+    const healthGoalId = editForm.healthGoalId;
+
+    if (!recipeId || !healthGoalId || recipeId <= 0 || healthGoalId <= 0) {
+      setError("Vui lòng nhập Recipe ID và Health Goal ID là số dương hợp lệ");
       return;
     }
 
     try {
-      await updateRecipeHealthGoal(recipeHealthGoalId, {
-        recipeId: editForm.recipeId,
-        healthGoalId: editForm.healthGoalId,
-      });
+      await updateRecipeHealthGoal(recipeHealthGoalId, { recipeId, healthGoalId });
       setEditingRecipeHealthGoalId(null);
       setEditForm({});
+      setError(null);
       fetchGoals();
     } catch (error: any) {
       setError(error.message || "Đã xảy ra lỗi khi cập nhật mục tiêu sức khỏe công thức");
@@ -119,11 +129,11 @@ const RecipeHealthGoalsPage: React.FC = () => {
     setEditForm({});
   };
 
-  // Xử lý xóa (Delete)
   const handleDelete = async (recipeHealthGoalId: number) => {
     if (window.confirm("Bạn có chắc muốn xóa mục tiêu sức khỏe công thức này?")) {
       try {
         await deleteRecipeHealthGoal(recipeHealthGoalId);
+        setError(null);
         fetchGoals();
       } catch (error: any) {
         setError(error.message || "Đã xảy ra lỗi khi xóa mục tiêu sức khỏe công thức");
@@ -138,7 +148,7 @@ const RecipeHealthGoalsPage: React.FC = () => {
 
   const handlePageSizeChange = (e: ChangeEvent<HTMLInputElement>) => {
     const size = parseInt(e.target.value) || 6;
-    setPageSize(size);
+    setPageSize(size < 1 ? 1 : size);
     setPageNumber(1);
   };
 
@@ -152,7 +162,12 @@ const RecipeHealthGoalsPage: React.FC = () => {
           Quản lý liên kết giữa công thức và mục tiêu sức khỏe.
         </Typography>
 
-        {/* Form tạo mới (Create) */}
+        {error && (
+          <Typography color="error" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" gutterBottom>
             Tạo mục tiêu sức khỏe công thức mới
@@ -165,6 +180,7 @@ const RecipeHealthGoalsPage: React.FC = () => {
                 value={newRecipeId}
                 onChange={(e) => setNewRecipeId(e.target.value)}
                 fullWidth
+                inputProps={{ min: 1 }}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -174,6 +190,7 @@ const RecipeHealthGoalsPage: React.FC = () => {
                 value={newHealthGoalId}
                 onChange={(e) => setNewHealthGoalId(e.target.value)}
                 fullWidth
+                inputProps={{ min: 1 }}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -190,7 +207,6 @@ const RecipeHealthGoalsPage: React.FC = () => {
           </Grid>
         </Box>
 
-        {/* Điều khiển phân trang */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} sm={6}>
             <TextField
@@ -212,15 +228,10 @@ const RecipeHealthGoalsPage: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Hiển thị danh sách mục tiêu sức khỏe công thức */}
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
-        ) : error ? (
-          <Typography color="error" sx={{ p: 3 }}>
-            {error}
-          </Typography>
         ) : goals.length === 0 ? (
           <Typography sx={{ p: 3 }}>Không có mục tiêu sức khỏe công thức nào để hiển thị.</Typography>
         ) : (
@@ -229,8 +240,10 @@ const RecipeHealthGoalsPage: React.FC = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>Recipe</TableCell>
-                  <TableCell>Health Goal</TableCell>
+                  <TableCell>Recipe ID</TableCell>
+                  <TableCell>Recipe Name</TableCell>
+                  <TableCell>Health Goal ID</TableCell>
+                  <TableCell>Health Goal Name</TableCell>
                   <TableCell>Hành động</TableCell>
                 </TableRow>
               </TableHead>
@@ -247,11 +260,13 @@ const RecipeHealthGoalsPage: React.FC = () => {
                             setEditForm({ ...editForm, recipeId: Number(e.target.value) })
                           }
                           fullWidth
+                          inputProps={{ min: 1 }}
                         />
                       ) : (
-                        `${goal.recipeId} (${goal.recipeName || "N/A"})`
+                        goal.recipeId
                       )}
                     </TableCell>
+                    <TableCell>{goal.recipeName || "N/A"}</TableCell>
                     <TableCell>
                       {editingRecipeHealthGoalId === goal.recipeHealthGoalId ? (
                         <TextField
@@ -261,11 +276,13 @@ const RecipeHealthGoalsPage: React.FC = () => {
                             setEditForm({ ...editForm, healthGoalId: Number(e.target.value) })
                           }
                           fullWidth
+                          inputProps={{ min: 1 }}
                         />
                       ) : (
-                        `${goal.healthGoalId} (${goal.healthGoalName || "N/A"})`
+                        goal.healthGoalId
                       )}
                     </TableCell>
+                    <TableCell>{goal.healthGoalName || "N/A"}</TableCell>
                     <TableCell>
                       {editingRecipeHealthGoalId === goal.recipeHealthGoalId ? (
                         <>
@@ -275,19 +292,13 @@ const RecipeHealthGoalsPage: React.FC = () => {
                           >
                             <SaveIcon />
                           </IconButton>
-                          <IconButton
-                            color="secondary"
-                            onClick={handleCancelEdit}
-                          >
+                          <IconButton color="secondary" onClick={handleCancelEdit}>
                             <CancelIcon />
                           </IconButton>
                         </>
                       ) : (
                         <>
-                          <IconButton
-                            color="primary"
-                            onClick={() => handleEdit(goal)}
-                          >
+                          <IconButton color="primary" onClick={() => handleEdit(goal)}>
                             <EditIcon />
                           </IconButton>
                           <IconButton

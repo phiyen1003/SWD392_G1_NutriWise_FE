@@ -7,11 +7,19 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
+      // Proxy hiện tại cho API của bạn
       '/api': {
         target: 'https://nutriwise.azurewebsites.net',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      // Thêm proxy cho Google OAuth
+      '/google': {
+        target: 'https://accounts.google.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/google/, ''),
       },
     },
   },

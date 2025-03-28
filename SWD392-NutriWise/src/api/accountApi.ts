@@ -5,16 +5,18 @@ import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 // Định nghĩa interface cho response từ BE
 export interface GoogleLoginResponse {
   token: string;
-  email: string | null; // Sửa thành string | null để khớp với Firebase
+  email: string | null;
   userId: string;
   isRegistered: boolean;
+  roleID: number;
 }
 
 export interface GoogleCallbackResponse {
   userId: string;
   token: string;
-  email: string | null; // Sửa tương tự
+  email: string | null;
   isRegistered: boolean;
+  roleID: number;
 }
 
 export interface CompleteProfileRequest {
@@ -47,7 +49,7 @@ export interface RegisterRequest {
   bmi: number;
   bloodPressure: string;
   cholesterol: string;
-  email: string; // Giữ là string vì đây là trường bắt buộc trong đăng ký
+  email: string;
   username: string;
   password?: string;
 }
@@ -83,11 +85,16 @@ export const firebaseLogin = async (): Promise<GoogleLoginResponse> => {
     // Nếu user đã đăng ký hoàn chỉnh, lưu token chính thức
     if (data.token && data.isRegistered) {
       localStorage.setItem("token", data.token);
-      localStorage.setItem("email", data.email || ""); // Fallback nếu email là null
+      localStorage.setItem("email", data.email || "");
       localStorage.setItem("userId", data.userId);
+
+      // Redirect nếu roleId = "1"
+      if (data.roleID === 1) {
+        window.location.href = "/nutriwise/dashboard";
+      }
     } else {
       // Nếu user chưa đăng ký, lưu thông tin tạm
-      localStorage.setItem("tempEmail", data.email || user.email || ""); // Fallback từ Firebase
+      localStorage.setItem("tempEmail", data.email || user.email || "");
       localStorage.setItem("tempUserId", data.userId || user.uid);
     }
 
@@ -116,10 +123,15 @@ export const googleCallback = async (idToken: string): Promise<GoogleCallbackRes
 
     if (data.token && data.isRegistered) {
       localStorage.setItem("token", data.token);
-      localStorage.setItem("email", data.email || ""); // Fallback nếu email là null
+      localStorage.setItem("email", data.email || "");
       localStorage.setItem("userId", data.userId);
+
+      // Redirect nếu roleId = "1"
+      if (data.roleID === 1) {
+        window.location.href = "/nutriwise/dashboard";
+      }
     } else {
-      localStorage.setItem("tempEmail", data.email || ""); // Fallback
+      localStorage.setItem("tempEmail", data.email || "");
       localStorage.setItem("tempUserId", data.userId);
     }
 
@@ -138,11 +150,16 @@ export const register = async (data: RegisterRequest): Promise<GoogleLoginRespon
     const result = response.data;
 
     localStorage.setItem("token", result.token);
-    localStorage.setItem("email", result.email || ""); // Fallback nếu null
+    localStorage.setItem("email", result.email || "");
     localStorage.setItem("userId", result.userId);
     localStorage.removeItem("tempToken");
     localStorage.removeItem("tempEmail");
     localStorage.removeItem("tempUserId");
+
+    // Redirect nếu roleId = "1"
+    if (result.roleID === 1) {
+      window.location.href = "/nutriwise/dashboard";
+    }
 
     return result;
   } catch (error: any) {
@@ -179,6 +196,7 @@ export const completeProfile = async (
       `/Account/update-profile/${data.userId}`,
       updateProfileData
     );
+
     return response.data;
   } catch (error: any) {
     if (error.response) {

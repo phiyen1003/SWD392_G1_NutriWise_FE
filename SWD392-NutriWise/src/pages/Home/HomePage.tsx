@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
 import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from "@mui/material";
-import { CompleteProfileRequest, firebaseLogin, signOut, updateProfile, register, RegisterRequest } from "../../api/accountApi";
+import { CompleteProfileRequest, firebaseLogin, signOut, updateProfile } from "../../api/accountApi";
 import { getAllRecipes } from "../../api/recipeApi";
 import { getAllIngredients } from "../../api/ingredientApi";
 import { getAllHealthProfiles } from "../../api/healthProfileApi";
@@ -17,7 +17,7 @@ import { auth } from "../../firebase-config";
 import { onAuthStateChanged } from "firebase/auth";
 
 interface AppUser {
-  email: string | null; // Sửa để khớp với GoogleLoginResponse.email
+  email: string | null;
   token: string;
   userId: string;
 }
@@ -36,25 +36,9 @@ const HomePage: React.FC = () => {
   const [healthProfile, setHealthProfile] = useState<HealthProfileDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [openAuthModal, setOpenAuthModal] = useState<boolean>(false);
+  // const [openAuthModal, setOpenAuthModal] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [openAccountPrompt, setOpenAccountPrompt] = useState<boolean>(false);
-  const [showRegisterForm, setShowRegisterForm] = useState<boolean>(false);
-  const [registerData, setRegisterData] = useState<RegisterRequest>({
-    fullName: "",
-    gender: "",
-    dateOfBirth: "",
-    height: 0,
-    weight: 0,
-    allergenId: 0,
-    healthGoalId: 0,
-    bmi: 0,
-    bloodPressure: "",
-    cholesterol: "",
-    email: localStorage.getItem("tempEmail") || "", // Điền sẵn email từ localStorage
-    username: localStorage.getItem("tempEmail")?.split("@")[0] || "", // Điền sẵn username
-    password: "",
-  });
+  const [openLoginPrompt, setOpenLoginPrompt] = useState<boolean>(false);
   const navigate = useNavigate();
 
   const restoreUserState = useCallback(() => {
@@ -94,15 +78,19 @@ const HomePage: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         currentUser.getIdToken().then((idToken) => {
-          setUser({
-            email: currentUser.email || null, // Sửa để chấp nhận null
+          const newUser = {
+            email: currentUser.email || null,
             token: idToken,
             userId: currentUser.uid,
-          });
+          };
+          setUser(newUser);
           localStorage.setItem("token", idToken);
           localStorage.setItem("email", currentUser.email || "");
           localStorage.setItem("userId", currentUser.uid);
           setShowAIChat(true);
+          // if (!healthProfile) {
+          //   setOpenAuthModal(true);
+          // }
         });
       } else {
         setUser(null);
@@ -114,7 +102,7 @@ const HomePage: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [healthProfile]);
 
   useEffect(() => {
     restoreUserState();
@@ -127,46 +115,30 @@ const HomePage: React.FC = () => {
   }, [restoreUserState, fetchData, error]);
 
   const handleGoogleLoginPrompt = () => {
-    setOpenAccountPrompt(true);
+    setOpenLoginPrompt(true);
   };
 
   const handleLogin = async () => {
     try {
       setError(null);
       const response = await firebaseLogin();
-      if (response.isRegistered) {
-        setUser({ email: response.email || null, token: response.token, userId: response.userId });
-        setOpenAccountPrompt(false);
-        navigate("/"); // Đã đăng ký hoàn chỉnh -> Trang chính
+      setUser({ email: response.email || null, token: response.token, userId: response.userId });
+      setOpenLoginPrompt(false);
+
+      // Kiểm tra roleId và redirect
+      if (response.roleID === 1) {
+        navigate("/nutriwise/dashboard");
       } else {
-        // User chưa đăng ký hoàn chỉnh -> Điền sẵn email và chuyển sang form đăng ký
-        setRegisterData({
-          ...registerData,
-          email: response.email || localStorage.getItem("tempEmail") || "",
-          username: (response.email || localStorage.getItem("tempEmail") || "").split("@")[0],
-        });
-        setShowRegisterForm(true); // Mở form đăng ký
+        navigate("/"); // Giữ nguyên homepage nếu roleId không phải "1"
       }
+
+      // if (!healthProfile) {
+      //   setOpenAuthModal(true); // Mở modal nhập profile nếu chưa có
+      // }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Không thể đăng nhập bằng Google";
       setError(errorMessage);
       console.error("Lỗi đăng nhập Google:", err);
-    }
-  };
-
-  const handleRegister = async () => {
-    try {
-      setError(null);
-      const response = await register(registerData);
-      setUser({ email: response.email || null, token: response.token, userId: response.userId });
-      setShowRegisterForm(false);
-      setOpenAccountPrompt(false);
-      alert("Đăng ký thành công! Đang đăng nhập...");
-      navigate("/");
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Không thể đăng ký";
-      setError(errorMessage);
-      console.error("Lỗi đăng ký:", err);
     }
   };
 
@@ -198,11 +170,11 @@ const HomePage: React.FC = () => {
           bloodPressure: data.bloodPressure,
           cholesterol: data.cholesterol,
         },
-        data.userId // Thêm userId vào tham số thứ hai
+        data.userId
       );
       setUser({ email: data.email || null, token: localStorage.getItem("token") || "", userId: data.userId });
       setShowAIChat(true);
-      setOpenAuthModal(false);
+      // setOpenAuthModal(false);
       setError(null);
       alert(response.message || "Hồ sơ đã được cập nhật thành công!");
       navigate("/");
@@ -235,17 +207,17 @@ const HomePage: React.FC = () => {
   };
 
   const features: Feature[] = [
-    { title: "Diverse Menu", description: `Hơn ${recipes.length}+ công thức lành mạnh`, icon: <ChefHat style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
-    { title: "Nutrition Advice", description: "Chuyên gia dinh dưỡng hỗ trợ bạn", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
-    { title: "Health Tracking", description: `Theo dõi số liệu (Cân nặng: ${healthProfile?.weight || "N/A"}kg)`, icon: <HeartPulse style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
-    { title: "Community", description: "Kết nối với cộng đồng yêu sức khỏe", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Thực Đơn Đa Dạng", description: `Hơn ${recipes.length} công thức lành mạnh`, icon: <ChefHat style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Tư Vấn Dinh Dưỡng", description: "Chuyên gia hỗ trợ bạn", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Theo Dõi Sức Khỏe", description: `Cân nặng: ${healthProfile?.weight || "Chưa có"}kg`, icon: <HeartPulse style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
+    { title: "Cộng Đồng", description: "Kết nối yêu sức khỏe", icon: <Users style={{ height: "48px", width: "48px", color: "#3B82F6" }} /> },
   ];
 
   const menuItems = [
-    { label: "Home", icon: <Home style={{ height: "18px", width: "18px", color: "inherit" }} /> },
-    { label: "Recipes", icon: <BookOpen style={{ height: "18px", width: "18px", color: "inherit" }} /> },
-    { label: "Ingredients", icon: <Sprout style={{ height: "18px", width: "18px", color: "inherit" }} /> },
-    { label: "About Us", icon: <Info style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "Trang Chủ", icon: <Home style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "Công Thức", icon: <BookOpen style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "Nguyên Liệu", icon: <Sprout style={{ height: "18px", width: "18px", color: "inherit" }} /> },
+    { label: "Giới Thiệu", icon: <Info style={{ height: "18px", width: "18px", color: "inherit" }} /> },
   ];
 
   if (loading) {
@@ -264,13 +236,13 @@ const HomePage: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           style={{
             position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            width: "384px",
-            height: "600px",
+            bottom: "20px",
+            right: "20px",
+            width: "350px",
+            height: "550px",
             backgroundColor: "#FFFFFF",
-            borderRadius: "16px",
-            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+            borderRadius: "12px",
+            boxShadow: "0 8px 12px rgba(0, 0, 0, 0.1)",
             zIndex: 50,
             overflow: "hidden",
             border: "1px solid #DBEAFE",
@@ -286,26 +258,27 @@ const HomePage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           style={{
             position: "fixed",
-            top: "80px",
+            top: "70px",
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 50,
-            display: "flex",
-            justifyContent: "center",
           }}
         >
           <div style={{
             backgroundColor: "rgba(239, 68, 68, 0.1)",
             color: "#DC2626",
-            padding: "16px 24px",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            maxWidth: "320px",
+            padding: "12px 20px",
+            borderRadius: "6px",
+            boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
+            maxWidth: "300px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px"
           }}>
             {error}
             <button
               onClick={() => setError(null)}
-              style={{ marginLeft: "10px", color: "#DC2626", background: "none", border: "none", cursor: "pointer" }}
+              style={{ color: "#DC2626", background: "none", border: "none", cursor: "pointer" }}
             >
               X
             </button>
@@ -318,9 +291,9 @@ const HomePage: React.FC = () => {
         top: 0,
         left: 0,
         right: 0,
-        height: "72px",
+        height: "60px",
         background: "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)",
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+        boxShadow: "0 2px 6px rgba(0, 0, 0, 0.1)",
         zIndex: 40,
         borderBottom: "1px solid #DBEAFE",
         fontFamily: "'Poppins', sans-serif",
@@ -331,19 +304,18 @@ const HomePage: React.FC = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "0 24px",
-          maxWidth: "1280px",
-          width: "100%",
+          padding: "0 20px",
+          maxWidth: "1200px",
         }}>
           <motion.div
             whileHover={{ scale: 1.05 }}
-            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
           >
-            <HeartPulse style={{ height: "28px", width: "28px", color: "#3B82F6" }} />
-            <span style={{ fontWeight: "700", fontSize: "26px", color: "#1F2937" }}>NutriWise</span>
+            <HeartPulse style={{ height: "24px", width: "24px", color: "#3B82F6" }} />
+            <span style={{ fontWeight: "700", fontSize: "22px", color: "#1F2937" }}>NutriWise</span>
           </motion.div>
 
-          <nav style={{ display: "flex", alignItems: "center", gap: "16px" }} className="hidden md:flex">
+          <nav style={{ display: "flex", alignItems: "center", gap: "12px" }} className="hidden md:flex">
             {menuItems.map((item) => (
               <motion.button
                 key={item.label}
@@ -352,13 +324,12 @@ const HomePage: React.FC = () => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
+                  gap: "6px",
                   color: "#374151",
                   fontWeight: "500",
-                  fontSize: "16px",
-                  letterSpacing: "0.5px",
-                  padding: "8px 16px",
-                  borderRadius: "20px",
+                  fontSize: "15px",
+                  padding: "6px 12px",
+                  borderRadius: "16px",
                   backgroundColor: "transparent",
                   transition: "all 0.3s ease",
                   cursor: "pointer",
@@ -371,38 +342,38 @@ const HomePage: React.FC = () => {
             ))}
           </nav>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <motion.button
               whileHover={{ scale: 1.05, backgroundColor: showAIChat ? "#DC2626" : "#2563EB" }}
               whileTap={{ scale: 0.95 }}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "8px",
-                padding: "8px 16px",
+                gap: "6px",
+                padding: "6px 12px",
                 backgroundColor: showAIChat ? "#EF4444" : "#3B82F6",
                 color: "#FFFFFF",
-                borderRadius: "20px",
-                fontSize: "14px",
+                borderRadius: "16px",
+                fontSize: "13px",
                 fontWeight: "500",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
               }}
               onClick={handleToggleAIChatTemporarily}
               className="md:flex hidden"
             >
-              <MessageSquare style={{ height: "16px", width: "16px" }} />
-              {showAIChat ? "Ẩn AI Chat" : "Hiện AI Chat"}
+              <MessageSquare style={{ height: "14px", width: "14px" }} />
+              {showAIChat ? "Ẩn Chat AI" : "Hiện Chat AI"}
             </motion.button>
 
             {user ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   style={{
-                    height: "40px",
-                    width: "40px",
+                    height: "36px",
+                    width: "36px",
                     backgroundColor: "#3B82F6",
                     color: "#FFFFFF",
                     borderRadius: "50%",
@@ -410,28 +381,28 @@ const HomePage: React.FC = () => {
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: "500",
-                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                    boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
                   }}
                 >
-                  {user.email ? user.email[0].toUpperCase() : "U"} {/* Thêm fallback nếu email là null */}
+                  {user.email ? user.email[0].toUpperCase() : "U"}
                 </motion.div>
                 <motion.button
                   whileHover={{ scale: 1.05, backgroundColor: "#DC2626" }}
                   whileTap={{ scale: 0.95 }}
                   style={{
-                    padding: "8px 16px",
+                    padding: "6px 12px",
                     backgroundColor: "#EF4444",
                     color: "#FFFFFF",
-                    borderRadius: "20px",
-                    fontSize: "14px",
+                    borderRadius: "16px",
+                    fontSize: "13px",
                     fontWeight: "500",
                     cursor: "pointer",
                     transition: "all 0.3s ease",
-                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                    boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
                   }}
                   onClick={handleLogout}
                 >
-                  Đăng xuất
+                  Đăng Xuất
                 </motion.button>
               </div>
             ) : (
@@ -439,31 +410,31 @@ const HomePage: React.FC = () => {
                 whileHover={{ scale: 1.05, backgroundColor: "#2563EB" }}
                 whileTap={{ scale: 0.95 }}
                 style={{
-                  padding: "8px 16px",
+                  padding: "6px 12px",
                   backgroundColor: "#3B82F6",
                   color: "#FFFFFF",
-                  borderRadius: "20px",
-                  fontSize: "14px",
+                  borderRadius: "16px",
+                  fontSize: "13px",
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleGoogleLoginPrompt}
                 className="md:flex hidden"
               >
-                Đăng nhập
+                Đăng Nhập
               </motion.button>
             )}
 
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              style={{ padding: "8px", cursor: "pointer" }}
+              style={{ padding: "6px", cursor: "pointer" }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden"
             >
-              <Menu style={{ height: "24px", width: "24px", color: "#374151" }} />
+              <Menu style={{ height: "20px", width: "20px", color: "#374151" }} />
             </motion.button>
           </div>
         </div>
@@ -479,32 +450,32 @@ const HomePage: React.FC = () => {
             top: 0,
             right: 0,
             bottom: 0,
-            width: "280px",
+            width: "250px",
             background: "linear-gradient(180deg, #FFFFFF 0%, #F3F4F6 100%)",
-            boxShadow: "-4px 0 6px -1px rgba(0, 0, 0, 0.1)",
+            boxShadow: "-3px 0 5px rgba(0, 0, 0, 0.1)",
             zIndex: 50,
-            padding: "24px",
+            padding: "20px",
             fontFamily: "'Poppins', sans-serif",
           }}
           className="md:hidden"
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <motion.div
               whileHover={{ scale: 1.05 }}
-              style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
             >
-              <HeartPulse style={{ height: "24px", width: "24px", color: "#3B82F6" }} />
-              <span style={{ fontWeight: "700", fontSize: "20px", color: "#1F2937" }}>NutriWise</span>
+              <HeartPulse style={{ height: "20px", width: "20px", color: "#3B82F6" }} />
+              <span style={{ fontWeight: "700", fontSize: "18px", color: "#1F2937" }}>NutriWise</span>
             </motion.div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setMobileMenuOpen(false)}
             >
-              <X style={{ height: "24px", width: "24px", color: "#374151" }} />
+              <X style={{ height: "20px", width: "20px", color: "#374151" }} />
             </motion.button>
           </div>
-          <nav style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <nav style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {menuItems.map((item) => (
               <motion.button
                 key={item.label}
@@ -515,13 +486,12 @@ const HomePage: React.FC = () => {
                   textAlign: "left",
                   display: "flex",
                   alignItems: "center",
-                  gap: "12px",
+                  gap: "10px",
                   color: "#374151",
                   fontWeight: "500",
-                  fontSize: "16px",
-                  letterSpacing: "0.5px",
-                  padding: "12px 16px",
-                  borderRadius: "12px",
+                  fontSize: "15px",
+                  padding: "10px 12px",
+                  borderRadius: "10px",
                   backgroundColor: "transparent",
                   transition: "all 0.3s ease",
                   cursor: "pointer",
@@ -542,21 +512,21 @@ const HomePage: React.FC = () => {
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
-                gap: "12px",
-                padding: "12px 16px",
+                gap: "10px",
+                padding: "10px 12px",
                 backgroundColor: showAIChat ? "#EF4444" : "#3B82F6",
                 color: "#FFFFFF",
-                borderRadius: "12px",
-                fontSize: "16px",
+                borderRadius: "10px",
+                fontSize: "15px",
                 fontWeight: "500",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
               }}
               onClick={handleToggleAIChatTemporarily}
             >
-              <MessageSquare style={{ height: "18px", width: "18px" }} />
-              {showAIChat ? "Ẩn AI Chat" : "Hiện AI Chat"}
+              <MessageSquare style={{ height: "16px", width: "16px" }} />
+              {showAIChat ? "Ẩn Chat AI" : "Hiện Chat AI"}
             </motion.button>
             {user ? (
               <motion.button
@@ -564,19 +534,19 @@ const HomePage: React.FC = () => {
                 whileTap={{ scale: 0.98 }}
                 style={{
                   width: "100%",
-                  padding: "12px 16px",
+                  padding: "10px 12px",
                   backgroundColor: "#EF4444",
                   color: "#FFFFFF",
-                  borderRadius: "12px",
-                  fontSize: "16px",
+                  borderRadius: "10px",
+                  fontSize: "15px",
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleLogout}
               >
-                Đăng xuất
+                Đăng Xuất
               </motion.button>
             ) : (
               <motion.button
@@ -584,156 +554,49 @@ const HomePage: React.FC = () => {
                 whileTap={{ scale: 0.98 }}
                 style={{
                   width: "100%",
-                  padding: "12px 16px",
+                  padding: "10px 12px",
                   backgroundColor: "#3B82F6",
                   color: "#FFFFFF",
-                  borderRadius: "12px",
-                  fontSize: "16px",
+                  borderRadius: "10px",
+                  fontSize: "15px",
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "all 0.3s ease",
-                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  boxShadow: "0 2px 3px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleGoogleLoginPrompt}
               >
-                Đăng nhập
+                Đăng Nhập
               </motion.button>
             )}
           </nav>
         </motion.div>
       )}
 
-      <AuthModal
+      {/* <AuthModal
         open={openAuthModal}
         onClose={() => setOpenAuthModal(false)}
         onCompleteProfile={handleCompleteProfile}
         isNewUser={true}
-        userId={localStorage.getItem("tempUserId") || ""}
-        email={localStorage.getItem("tempEmail") || ""}
-      />
+        userId={user?.userId || ""}
+        email={user?.email || ""}
+      /> */}
 
-      {/* Modal hỏi tài khoản */}
-      <Dialog open={openAccountPrompt} onClose={() => setOpenAccountPrompt(false)}>
-        <DialogTitle>Bạn đã có tài khoản chưa?</DialogTitle>
+      <Dialog open={openLoginPrompt} onClose={() => setOpenLoginPrompt(false)}>
+        <DialogTitle>Đăng Nhập Với Google</DialogTitle>
         <DialogContent>
-          {!showRegisterForm ? (
-            <p>Vui lòng chọn tùy chọn bên dưới:</p>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-              <TextField
-                label="Họ tên"
-                value={registerData.fullName}
-                onChange={(e) => setRegisterData({ ...registerData, fullName: e.target.value })}
-                required
-              />
-              <TextField
-                label="Giới tính"
-                value={registerData.gender}
-                onChange={(e) => setRegisterData({ ...registerData, gender: e.target.value })}
-                required
-              />
-              <TextField
-                label="Ngày sinh (YYYY-MM-DD)"
-                value={registerData.dateOfBirth}
-                onChange={(e) => setRegisterData({ ...registerData, dateOfBirth: e.target.value })}
-                required
-              />
-              <TextField
-                label="Chiều cao (cm)"
-                type="number"
-                value={registerData.height}
-                onChange={(e) => setRegisterData({ ...registerData, height: parseInt(e.target.value) || 0 })}
-                required
-              />
-              <TextField
-                label="Cân nặng (kg)"
-                type="number"
-                value={registerData.weight}
-                onChange={(e) => setRegisterData({ ...registerData, weight: parseInt(e.target.value) || 0 })}
-                required
-              />
-              <TextField
-                label="Allergen ID"
-                type="number"
-                value={registerData.allergenId}
-                onChange={(e) => setRegisterData({ ...registerData, allergenId: parseInt(e.target.value) || 0 })}
-                required
-              />
-              <TextField
-                label="Health Goal ID"
-                type="number"
-                value={registerData.healthGoalId}
-                onChange={(e) => setRegisterData({ ...registerData, healthGoalId: parseInt(e.target.value) || 0 })}
-                required
-              />
-              <TextField
-                label="BMI"
-                type="number"
-                value={registerData.bmi}
-                onChange={(e) => setRegisterData({ ...registerData, bmi: parseFloat(e.target.value) || 0 })}
-                required
-              />
-              <TextField
-                label="Huyết áp"
-                value={registerData.bloodPressure}
-                onChange={(e) => setRegisterData({ ...registerData, bloodPressure: e.target.value })}
-                required
-              />
-              <TextField
-                label="Cholesterol"
-                value={registerData.cholesterol}
-                onChange={(e) => setRegisterData({ ...registerData, cholesterol: e.target.value })}
-                required
-              />
-              <TextField
-                label="Email"
-                value={registerData.email}
-                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                required
-              />
-              <TextField
-                label="Tên đăng nhập"
-                value={registerData.username}
-                onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                required
-              />
-              <TextField
-                label="Mật khẩu"
-                type="password"
-                value={registerData.password}
-                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                required
-              />
-            </Box>
-          )}
+          <p>Vui lòng đăng nhập bằng tài khoản Google để tiếp tục:</p>
         </DialogContent>
         <DialogActions>
-          {!showRegisterForm ? (
-            <>
-              <Button onClick={handleLogin} color="primary">
-                Đã có tài khoản (Đăng nhập)
-              </Button>
-              <Button onClick={() => setShowRegisterForm(true)} color="secondary">
-                Chưa có (Đăng ký)
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={handleRegister} color="primary">
-                Đăng ký
-              </Button>
-              <Button onClick={() => setShowRegisterForm(false)} color="secondary">
-                Quay lại
-              </Button>
-            </>
-          )}
+          <Button onClick={handleLogin} color="primary">Đăng Nhập</Button>
+          <Button onClick={() => setOpenLoginPrompt(false)} color="secondary">Hủy</Button>
         </DialogActions>
       </Dialog>
 
       <section style={{
         position: "relative",
-        padding: "96px 0",
-        minHeight: "90vh",
+        padding: "80px 0",
+        minHeight: "85vh",
         display: "flex",
         alignItems: "center",
         background: "linear-gradient(to right, #3B82F6, rgba(59, 130, 246, 0.2))",
@@ -753,8 +616,8 @@ const HomePage: React.FC = () => {
         <div style={{
           margin: "0 auto",
           textAlign: "center",
-          padding: "0 16px",
-          maxWidth: "1280px",
+          padding: "0 15px",
+          maxWidth: "1200px",
           position: "relative",
           zIndex: 10,
         }}>
@@ -762,53 +625,41 @@ const HomePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            style={{
-              fontSize: "48px",
-              fontWeight: "bold",
-              marginBottom: "24px",
-              letterSpacing: "-0.5px",
-            }}
+            style={{ fontSize: "42px", fontWeight: "bold", marginBottom: "20px" }}
           >
-            Sống Khỏe Mỗi Ngày với NutriWise
+            Sống Khỏe Mỗi Ngày Với NutriWise
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            style={{
-              fontSize: "18px",
-              marginBottom: "32px",
-              maxWidth: "720px",
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
+            style={{ fontSize: "16px", marginBottom: "25px", maxWidth: "600px", marginLeft: "auto", marginRight: "auto" }}
           >
-            Giải pháp dinh dưỡng thông minh cho lối sống lành mạnh
+            Giải pháp dinh dưỡng thông minh cho cuộc sống lành mạnh
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            style={{ display: "flex", justifyContent: "center", gap: "20px" }}
+            style={{ display: "flex", justifyContent: "center", gap: "15px" }}
           >
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)" }}
+              whileHover={{ scale: 1.05, boxShadow: "0 6px 15px rgba(0, 0, 0, 0.15)" }}
               whileTap={{ scale: 0.95 }}
               style={{
-                padding: "14px 28px",
+                padding: "12px 24px",
                 background: "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)",
                 color: "#3B82F6",
-                borderRadius: "12px",
+                borderRadius: "10px",
                 fontFamily: "'Poppins', sans-serif",
-                fontSize: "18px",
+                fontSize: "16px",
                 fontWeight: "600",
-                letterSpacing: "0.5px",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
+                boxShadow: "0 3px 8px rgba(0, 0, 0, 0.1)",
                 display: "flex",
                 alignItems: "center",
-                gap: "8px",
+                gap: "6px",
                 border: "none",
               }}
               onClick={handleGoogleLoginPrompt}
@@ -816,27 +667,26 @@ const HomePage: React.FC = () => {
               onMouseOut={(e) => (e.currentTarget.style.background = "linear-gradient(90deg, #FFFFFF 0%, #F3F4F6 100%)")}
             >
               Bắt Đầu
-              <ArrowRight style={{ height: "22px", width: "22px" }} />
+              <ArrowRight style={{ height: "20px", width: "20px" }} />
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)" }}
+              whileHover={{ scale: 1.05, boxShadow: "0 6px 15px rgba(0, 0, 0, 0.15)" }}
               whileTap={{ scale: 0.95 }}
               style={{
-                padding: "14px 28px",
+                padding: "12px 24px",
                 backgroundColor: "transparent",
                 color: "#FFFFFF",
                 border: "2px solid rgba(255, 255, 255, 0.8)",
-                borderRadius: "12px",
+                borderRadius: "10px",
                 fontFamily: "'Poppins', sans-serif",
-                fontSize: "18px",
+                fontSize: "16px",
                 fontWeight: "600",
-                letterSpacing: "0.5px",
                 cursor: "pointer",
                 transition: "all 0.3s ease",
-                boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
+                boxShadow: "0 3px 8px rgba(0, 0, 0, 0.1)",
               }}
-              onClick={() => navigate("/about-us")}
+              onClick={() => navigate("/gioi-thieu")}
               onMouseOver={(e) => {
                 e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
                 e.currentTarget.style.border = "2px solid #FFFFFF";
@@ -852,24 +702,18 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ padding: "80px 0", backgroundColor: "#FFFFFF" }}>
-        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+      <section style={{ padding: "70px 0", backgroundColor: "#FFFFFF" }}>
+        <div style={{ margin: "0 auto", padding: "0 15px", maxWidth: "1200px" }}>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            style={{
-              fontSize: "36px",
-              fontWeight: "bold",
-              textAlign: "center",
-              marginBottom: "48px",
-              color: "#1F2937",
-            }}
+            style={{ fontSize: "32px", fontWeight: "bold", textAlign: "center", marginBottom: "40px", color: "#1F2937" }}
           >
             Tính Năng Nổi Bật
           </motion.h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }} className="sm:grid-cols-2 lg:grid-cols-4">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "25px" }} className="sm:grid-cols-2 lg:grid-cols-4">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
@@ -878,111 +722,109 @@ const HomePage: React.FC = () => {
                 viewport={{ once: true }}
                 transition={{ duration: 0.8, delay: index * 0.2 }}
                 style={{
-                  padding: "24px",
+                  padding: "20px",
                   backgroundColor: "#FFFFFF",
-                  borderRadius: "16px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  borderRadius: "12px",
+                  boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
                   transition: "box-shadow 0.3s",
                   border: "2px solid #DBEAFE",
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)")}
-                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)")}
+                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 8px 12px rgba(0, 0, 0, 0.1)")}
+                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 3px 5px rgba(0, 0, 0, 0.1)")}
               >
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>{feature.icon}</div>
-                <h3 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "8px", textAlign: "center", color: "#1F2937" }}>{feature.title}</h3>
-                <p style={{ textAlign: "center", color: "#6B7280" }}>{feature.description}</p>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px" }}>{feature.icon}</div>
+                <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "6px", textAlign: "center", color: "#1F2937" }}>{feature.title}</h3>
+                <p style={{ textAlign: "center", color: "#6B7280", fontSize: "14px" }}>{feature.description}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
-        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+      <section style={{ padding: "70px 0", backgroundColor: "#EFF6FF" }}>
+        <div style={{ margin: "0 auto", padding: "0 15px", maxWidth: "1200px" }}>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
             style={{
-              fontSize: "36px",
+              fontSize: "32px",
               fontWeight: "bold",
               textAlign: "center",
-              marginBottom: "32px",
+              marginBottom: "30px",
               color: "#1F2937",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px",
+              gap: "6px",
             }}
           >
-            <Apple style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Nguyên Liệu Phổ Biến
+            <Apple style={{ height: "28px", width: "28px", color: "#3B82F6" }} /> Nguyên Liệu Phổ Biến
           </motion.h2>
-          <div
-            style={{
-              display: "flex",
-              overflowX: "auto",
-              gap: "16px",
-              padding: "16px 0",
-              scrollBehavior: "smooth",
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "thin",
-              scrollbarColor: "#3B82F6 #DBEAFE",
-            }}
-          >
+          <div style={{
+            display: "flex",
+            overflowX: "auto",
+            gap: "12px",
+            padding: "12px 0",
+            scrollBehavior: "smooth",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "thin",
+            scrollbarColor: "#3B82F6 #DBEAFE",
+          }}>
             {ingredients.slice(0, 6).map((ingredient, index) => (
               <motion.div
                 key={ingredient.ingredientId}
                 initial={{ opacity: 0, x: 50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
-                whileHover={{ scale: 1.05, boxShadow: "0 12px 20px -5px rgba(0, 0, 0, 0.15)" }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={{ scale: 1.05, boxShadow: "0 10px 15px rgba(0, 0, 0, 0.1)" }}
                 style={{
-                  flex: "0 0 240px",
+                  flex: "0 0 220px",
                   backgroundColor: "#FFFFFF",
-                  borderRadius: "16px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  borderRadius: "12px",
+                  boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
                   overflow: "hidden",
                   transition: "all 0.3s ease",
                   border: "2px solid #DBEAFE",
                 }}
               >
-                <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: "24px" }}>
+                <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: "20px" }}>
                   <img
                     src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop"
                     alt={ingredient.name || `Nguyên liệu ${index + 1}`}
                     style={{
-                      width: "120px",
-                      height: "120px",
+                      width: "100px",
+                      height: "100px",
                       objectFit: "cover",
                       borderRadius: "50%",
-                      border: "3px solid #3B82F6",
-                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                      border: "2px solid #3B82F6",
+                      boxShadow: "0 3px 6px rgba(0, 0, 0, 0.1)",
                     }}
                   />
                 </div>
-                <div style={{ padding: "16px", textAlign: "center" }}>
-                  <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937", marginBottom: "8px" }}>
+                <div style={{ padding: "12px", textAlign: "center" }}>
+                  <h3 style={{ fontSize: "16px", fontWeight: "600", color: "#1F2937", marginBottom: "6px" }}>
                     {ingredient.name || "Không có tên"}
                   </h3>
-                  <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "12px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  <p style={{ fontSize: "13px", color: "#6B7280", marginBottom: "10px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                     {ingredient.description || "Không có mô tả"}
                   </p>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     style={{
-                      padding: "8px 16px",
+                      padding: "6px 12px",
                       backgroundColor: "#3B82F6",
                       color: "#FFFFFF",
-                      borderRadius: "8px",
+                      borderRadius: "6px",
                       fontWeight: "500",
                       cursor: "pointer",
                       transition: "background-color 0.3s",
                       width: "100%",
                     }}
-                    onClick={() => navigate(`/ingredients/${ingredient.ingredientId}`)}
+                    onClick={() => navigate(`/nguyen-lieu/${ingredient.ingredientId}`)}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                   >
@@ -998,52 +840,52 @@ const HomePage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              style={{ display: "flex", justifyContent: "center", marginTop: "32px" }}
+              style={{ display: "flex", justifyContent: "center", marginTop: "25px" }}
             >
               <button
                 style={{
-                  padding: "12px 24px",
+                  padding: "10px 20px",
                   backgroundColor: "#3B82F6",
                   color: "#FFFFFF",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "background-color 0.3s",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
                 }}
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/nguyen-lieu")}
                 onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                 onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
               >
-                Xem Thêm <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
+                Xem Thêm <ArrowRight style={{ display: "inline-block", marginLeft: "6px", height: "18px", width: "18px" }} />
               </button>
             </motion.div>
           )}
         </div>
       </section>
 
-      <section style={{ padding: "80px 0", backgroundColor: "#FFFFFF" }}>
-        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
+      <section style={{ padding: "70px 0", backgroundColor: "#FFFFFF" }}>
+        <div style={{ margin: "0 auto", padding: "0 15px", maxWidth: "1200px" }}>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
             style={{
-              fontSize: "36px",
+              fontSize: "32px",
               fontWeight: "bold",
               textAlign: "center",
-              marginBottom: "48px",
+              marginBottom: "40px",
               color: "#1F2937",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px",
+              gap: "6px",
             }}
           >
-            <ChefHat style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Công Thức Nổi Bật
+            <ChefHat style={{ height: "28px", width: "28px", color: "#3B82F6" }} /> Công Thức Nổi Bật
           </motion.h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "32px" }} className="sm:grid-cols-2 lg:grid-cols-3">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "25px" }} className="sm:grid-cols-2 lg:grid-cols-3">
             {recipes.slice(0, 6).map((recipe, index) => (
               <motion.div
                 key={recipe.recipeId}
@@ -1053,23 +895,23 @@ const HomePage: React.FC = () => {
                 transition={{ duration: 0.8, delay: index * 0.1 }}
                 style={{
                   backgroundColor: "#FFFFFF",
-                  borderRadius: "16px",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  borderRadius: "12px",
+                  boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
                   overflow: "hidden",
                   transition: "box-shadow 0.3s",
                   border: "2px solid #DBEAFE",
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)")}
-                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)")}
+                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 8px 12px rgba(0, 0, 0, 0.1)")}
+                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 3px 5px rgba(0, 0, 0, 0.1)")}
               >
                 <img
                   src="https://images.unsplash.com/photo-1504672281656-e4981d704151?q=80&w=2070&auto=format&fit=crop"
                   alt={recipe.name || `Công thức ${index + 1}`}
-                  style={{ width: "100%", height: "192px", objectFit: "cover" }}
+                  style={{ width: "100%", height: "180px", objectFit: "cover" }}
                 />
-                <div style={{ padding: "24px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <h3 style={{ fontSize: "18px", fontWeight: "600", color: "#1F2937" }}>{recipe.name || "Không có tên"}</h3>
+                <div style={{ padding: "20px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <h3 style={{ fontSize: "16px", fontWeight: "600", color: "#1F2937" }}>{recipe.name || "Không có tên"}</h3>
                     <button
                       onClick={() => handleAddFavorite(recipe.recipeId)}
                       disabled={!user}
@@ -1081,22 +923,22 @@ const HomePage: React.FC = () => {
                       onMouseOver={(e) => (e.currentTarget.style.color = user ? "#3B82F6" : "#6B7280")}
                       onMouseOut={(e) => (e.currentTarget.style.color = "#6B7280")}
                     >
-                      <Heart style={{ height: "20px", width: "20px" }} />
+                      <Heart style={{ height: "18px", width: "18px" }} />
                     </button>
                   </div>
-                  <p style={{ fontSize: "14px", color: "#6B7280", marginBottom: "16px" }}>{recipe.description || "Không có mô tả"}</p>
+                  <p style={{ fontSize: "13px", color: "#6B7280", marginBottom: "12px" }}>{recipe.description || "Không có mô tả"}</p>
                   <button
                     style={{
                       width: "100%",
-                      padding: "8px 16px",
+                      padding: "6px 12px",
                       backgroundColor: "#3B82F6",
                       color: "#FFFFFF",
-                      borderRadius: "8px",
+                      borderRadius: "6px",
                       fontWeight: "500",
                       cursor: "pointer",
                       transition: "background-color 0.3s",
                     }}
-                    onClick={() => navigate(`/recipes/${recipe.recipeId}`)}
+                    onClick={() => navigate(`/cong-thuc/${recipe.recipeId}`)}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                   >
@@ -1112,108 +954,27 @@ const HomePage: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              style={{ display: "flex", justifyContent: "center", marginTop: "32px" }}
+              style={{ display: "flex", justifyContent: "center", marginTop: "25px" }}
             >
               <button
                 style={{
-                  padding: "12px 24px",
+                  padding: "10px 20px",
                   backgroundColor: "#3B82F6",
                   color: "#FFFFFF",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   fontWeight: "500",
                   cursor: "pointer",
                   transition: "background-color 0.3s",
-                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
                 }}
-                onClick={() => navigate("/recipes")}
+                onClick={() => navigate("/cong-thuc")}
                 onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                 onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
               >
-                Xem Thêm <ArrowRight style={{ display: "inline-block", marginLeft: "8px", height: "20px", width: "20px" }} />
+                Xem Thêm <ArrowRight style={{ display: "inline-block", marginLeft: "6px", height: "18px", width: "18px" }} />
               </button>
             </motion.div>
           )}
-        </div>
-      </section>
-
-      <section style={{ padding: "80px 0", backgroundColor: "#EFF6FF" }}>
-        <div style={{ margin: "0 auto", padding: "0 16px", maxWidth: "1280px" }}>
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            style={{
-              fontSize: "36px",
-              fontWeight: "bold",
-              textAlign: "center",
-              marginBottom: "48px",
-              color: "#1F2937",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            <HeartPulse style={{ height: "32px", width: "32px", color: "#3B82F6" }} /> Thông Tin Sức Khỏe
-          </motion.h2>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            style={{
-              maxWidth: "960px",
-              margin: "0 auto",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              padding: "24px",
-              border: "2px solid #DBEAFE",
-            }}
-          >
-            {healthProfile ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }} className="sm:grid-cols-2">
-                <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Họ Tên</p>
-                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.fullName || "N/A"}</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Giới Tính</p>
-                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.gender || "N/A"}</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Chiều Cao</p>
-                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.height || "N/A"} cm</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>Cân Nặng</p>
-                  <p style={{ fontWeight: "500", color: "#1F2937" }}>{healthProfile.weight || "N/A"} kg</p>
-                </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: "center" }}>
-                <p style={{ color: "#6B7280", marginBottom: "16px" }}>Vui lòng đăng nhập để xem thông tin sức khỏe của bạn.</p>
-                <button
-                  style={{
-                    padding: "12px 24px",
-                    backgroundColor: "#3B82F6",
-                    color: "#FFFFFF",
-                    borderRadius: "8px",
-                    fontWeight: "500",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                  onClick={handleGoogleLoginPrompt}
-                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
-                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
-                >
-                  Đăng Nhập Ngay
-                </button>
-              </div>
-            )}
-          </motion.div>
         </div>
       </section>
       <Footer />

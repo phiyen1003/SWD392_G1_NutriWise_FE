@@ -290,7 +290,7 @@ export interface ProfileGoalDTO {
   healthProfileId: number;
   healthGoalId: number;
   startDate: string; // ISO date string
-  endDate?: string; // ISO date string
+  endDate?: string | null; // ISO date string
   healthGoalName?: string | null;
   healthProfileName?: string | null;
 }
@@ -404,7 +404,7 @@ export interface UpdateProfileGoalDTO {
   healthProfileId: number;
   healthGoalId: number;
   startDate: string; // ISO date string
-  endDate?: string; // ISO date string
+  endDate?: string | null; // ISO date string
 }
 
 // UpdateRecipeDTO
@@ -426,4 +426,10 @@ export interface ChatSessionDTO {
   chatSessionId: number,
   title: string,
   lastUpdatedDate: string,
+}
+
+// Định nghĩa kiểu cho PaginatedResponse
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
 }

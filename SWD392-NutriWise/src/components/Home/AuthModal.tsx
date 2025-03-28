@@ -1,6 +1,20 @@
-import React, { useState } from "react";
-import { Modal, Box, TextField, Button, Typography, MenuItem } from "@mui/material";
-import { CompleteProfileRequest } from "../../api/accountApi";
+import React, { useState, useEffect } from "react";
+import { Modal, Box, TextField, Button, Typography } from "@mui/material";
+
+interface CompleteProfileRequest {
+  userId: string;
+  email: string;
+  fullName: string;
+  gender: string;
+  dateOfBirth: string;
+  height: number;
+  weight: number;
+  allergenId: number;
+  healthGoalId: number;
+  bmi: number;
+  bloodPressure: string;
+  cholesterol: string;
+}
 
 interface AuthModalProps {
   open: boolean;
@@ -20,14 +34,21 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
     dateOfBirth: "",
     height: 0,
     weight: 0,
-    allergenId: 0, // Giá trị mặc định
-    healthGoalId: 0, // Giá trị mặc định
-    bmi: 0, // Giá trị mặc định
+    allergenId: 0,
+    healthGoalId: 0,
+    bmi: 0,
     bloodPressure: "",
     cholesterol: "",
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const heightInMeters = formData.height / 100;
+    const calculatedBmi = heightInMeters > 0 ? formData.weight / (heightInMeters * heightInMeters) : 0;
+    console.log(`Height: ${formData.height}, Weight: ${formData.weight}, Calculated BMI: ${calculatedBmi}`);
+    setFormData((prev) => ({ ...prev, bmi: Number(calculatedBmi.toFixed(2)) }));
+  }, [formData.height, formData.weight]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -36,11 +57,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
     if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of Birth is required";
     if (formData.height <= 0) newErrors.height = "Height must be greater than 0";
     if (formData.weight <= 0) newErrors.weight = "Weight must be greater than 0";
-    if (formData.allergenId === undefined || formData.allergenId <= 0)
-      newErrors.allergenId = "Allergen ID must be greater than 0";
-    if (formData.healthGoalId === undefined || formData.healthGoalId <= 0)
-      newErrors.healthGoalId = "Health Goal ID must be greater than 0";
-    if (formData.bmi === undefined || formData.bmi <= 0) newErrors.bmi = "BMI must be greater than 0";
+    if (formData.allergenId <= 0) newErrors.allergenId = "Allergen ID must be greater than 0";
+    if (formData.healthGoalId <= 0) newErrors.healthGoalId = "Health Goal ID must be greater than 0";
     if (!formData.bloodPressure) newErrors.bloodPressure = "Blood Pressure is required";
     if (!formData.cholesterol) newErrors.cholesterol = "Cholesterol is required";
     setErrors(newErrors);
@@ -50,27 +68,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => {
-      const newData = {
+      const newValue =
+        name === "height" || name === "weight" || name === "allergenId" || name === "healthGoalId"
+          ? parseFloat(value) || 0
+          : value;
+      return {
         ...prev,
-        [name]:
-          name === "height" || name === "weight" || name === "allergenId" || name === "healthGoalId"
-            ? parseFloat(value) || 0
-            : value,
+        [name]: newValue,
       };
-      // Tính BMI tự động
-      if (name === "height" || name === "weight") {
-        const heightInMeters = newData.height / 100;
-        newData.bmi = heightInMeters > 0 ? newData.weight / (heightInMeters * heightInMeters) : 0;
-      }
-      return newData;
     });
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setSubmitError(null);
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-  
+
     try {
       setSubmitError(null);
       await onCompleteProfile(formData);
@@ -157,7 +171,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
             label="Height (cm)"
             name="height"
             type="number"
-            value={formData.height}
+            value={formData.height === 0 ? "" : formData.height}
             onChange={handleChange}
             fullWidth
             margin="normal"
@@ -168,7 +182,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
             label="Weight (kg)"
             name="weight"
             type="number"
-            value={formData.weight}
+            value={formData.weight === 0 ? "" : formData.weight}
             onChange={handleChange}
             fullWidth
             margin="normal"
@@ -176,10 +190,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
             helperText={errors.weight}
           />
           <TextField
+            label="BMI"
+            name="bmi"
+            type="number"
+            value={formData.bmi}
+            fullWidth
+            margin="normal"
+            InputProps={{ readOnly: true }}
+            helperText="Calculated automatically"
+          />
+          <TextField
             label="Allergen ID"
             name="allergenId"
             type="number"
-            value={formData.allergenId}
+            value={formData.allergenId === 0 ? "" : formData.allergenId}
             onChange={handleChange}
             fullWidth
             margin="normal"
@@ -190,23 +214,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, onCompleteProfile,
             label="Health Goal ID"
             name="healthGoalId"
             type="number"
-            value={formData.healthGoalId}
+            value={formData.healthGoalId === 0 ? "" : formData.healthGoalId}
             onChange={handleChange}
             fullWidth
             margin="normal"
             error={!!errors.healthGoalId}
             helperText={errors.healthGoalId}
-          />
-          <TextField
-            label="BMI"
-            name="bmi"
-            type="number"
-            value={formData.bmi}
-            onChange={handleChange}
-            fullWidth
-            margin="normal"
-            error={!!errors.bmi}
-            helperText={errors.bmi}
           />
           <TextField
             label="Blood Pressure"
