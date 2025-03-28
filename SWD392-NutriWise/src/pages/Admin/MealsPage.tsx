@@ -21,8 +21,8 @@ import {
   updateMeal,
   deleteMeal,
 } from "../../api/mealApi";
-import { getRecipeImagesByRecipeId } from "../../api/recipeImageApi";
-import { MealDTO, UpdateMealDTO, RecipeImageDTO } from "../../types/types";
+import { getMenuRecipeImageByMenuRecipeId } from "../../api/MenuRecipeImage"; // Thay đổi import
+import { MealDTO, UpdateMealDTO, MenuRecipeImageDTO } from "../../types/types"; // Sử dụng MenuRecipeImageDTO
 import { Stack } from "@chakra-ui/react";
 import apiClient from "../../api/apiClient";
 
@@ -39,7 +39,7 @@ const MealsPage: React.FC = () => {
   const [currentMealId, setCurrentMealId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [recipeImages, setRecipeImages] = useState<{ [key: number]: RecipeImageDTO[] }>({});
+  const [menuRecipeImages, setMenuRecipeImages] = useState<{ [key: number]: MenuRecipeImageDTO[] }>({}); // Thay đổi thành MenuRecipeImageDTO
   const [customImageUrls, setCustomImageUrls] = useState<{ [key: number]: string }>({});
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -51,7 +51,7 @@ const MealsPage: React.FC = () => {
     setCurrentPage(currentPage);
     setPageSize(pageSize);
     setTotalPages(totalPages);
-  }
+  };
 
   useEffect(() => {
     const savedCustomImageUrls = localStorage.getItem("customImageUrls");
@@ -64,22 +64,25 @@ const MealsPage: React.FC = () => {
   const fetchMeals = async () => {
     try {
       setLoading(true);
-      const mealsData = await apiClient.get(`/Meal/all-meals?PageNumber=${currentPage}&PageSize=${3}`);
+      const mealsData = await apiClient.get(`/Meal/all-meals?PageNumber=${currentPage}&PageSize=3`);
       const paginationHeader = JSON.parse(mealsData.headers["x-pagination"]);
       setPaging(paginationHeader.CurrentPage, paginationHeader.TotalCount, paginationHeader.PageSize, paginationHeader.TotalPages);
       setMeals(mealsData.data);
 
+      // Lấy ảnh từ MenuRecipeImage thay vì RecipeImage
       const imagePromises = mealsData.data.map(async (meal: MealDTO) => {
-        const images = await getRecipeImagesByRecipeId(meal.recipeId);
-        return { recipeId: meal.recipeId, images };
+        // Giả sử MealDTO có menuRecipeId, nếu không cần thêm logic để lấy menuRecipeId từ recipeId
+        const menuRecipeId = meal.recipeId; // Thay đổi nếu MealDTO có menuRecipeId riêng
+        const images = await getMenuRecipeImageByMenuRecipeId(menuRecipeId);
+        return { recipeId: menuRecipeId, images }; // Sử dụng recipeId làm key tạm thời
       });
       const imagesData = await Promise.all(imagePromises);
       const imagesMap = imagesData.reduce((acc, { recipeId, images }) => {
         acc[recipeId] = images;
         return acc;
-      }, {} as { [key: number]: RecipeImageDTO[] });
-      setRecipeImages(imagesMap);
-      console.log("recipeImages:", imagesMap);
+      }, {} as { [key: number]: MenuRecipeImageDTO[] });
+      setMenuRecipeImages(imagesMap);
+      console.log("menuRecipeImages:", imagesMap);
     } catch (err) {
       setError("Đã xảy ra lỗi khi tải danh sách bữa ăn hoặc hình ảnh");
       console.error(err);
@@ -122,8 +125,8 @@ const MealsPage: React.FC = () => {
             return newCustomImageUrls;
           });
         }
-        const images = await getRecipeImagesByRecipeId(createdMeal.recipeId);
-        setRecipeImages((prev) => ({ ...prev, [createdMeal.recipeId]: images }));
+        const images = await getMenuRecipeImageByMenuRecipeId(createdMeal.recipeId); // Lấy ảnh từ MenuRecipeImage
+        setMenuRecipeImages((prev) => ({ ...prev, [createdMeal.recipeId]: images }));
       }
       setNewMeal({ healthProfileId: 0, mealDate: "", mealTime: "", recipeId: 0, imageUrl: "" });
     } catch (err) {
@@ -163,17 +166,17 @@ const MealsPage: React.FC = () => {
   const getImageUrl = (recipeId: number): string => {
     if (customImageUrls[recipeId]) {
       console.log("Using customImageUrl:", customImageUrls[recipeId]);
-      return customImageUrls[recipeId] || "https://picsum.photos/300"; // Đảm bảo ảnh có kích thước phù hợp
+      return customImageUrls[recipeId] || "https://picsum.photos/300";
     }
     if (isEditing || (!isEditing && newMeal.recipeId === recipeId && newMeal.imageUrl)) {
       console.log("Using newMeal.imageUrl:", newMeal.imageUrl);
       return newMeal.imageUrl || "https://picsum.photos/300";
     }
-    const images = recipeImages[recipeId];
-    console.log("Using recipeImages:", images);
+    const images = menuRecipeImages[recipeId]; // Sử dụng menuRecipeImages thay vì recipeImages
+    console.log("Using menuRecipeImages:", images);
     return images && images.length > 0
       ? images[0].imageUrl ?? "https://picsum.photos/300"
-      : "https://picsum.photos/300"; // Sử dụng ảnh có kích thước cố định
+      : "https://picsum.photos/300";
   };
 
   return (
@@ -288,25 +291,25 @@ const MealsPage: React.FC = () => {
                         sx={{
                           borderRadius: "16px",
                           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
-                          minHeight: "450px", // Chiều cao tối thiểu cho card
+                          minHeight: "450px",
                           display: "flex",
                           flexDirection: "column",
                         }}
                       >
                         <CardMedia
                           component="img"
-                          height="300" // Chiều cao cố định cho hình ảnh
-                          width="100%" // Chiều rộng tự động theo card
+                          height="300"
+                          width="100%"
                           image={getImageUrl(meal.recipeId)}
                           alt={`Meal ${meal.mealId}`}
                           sx={{
-                            objectFit: "cover", // Đảm bảo hình ảnh vừa khung
-                            display: "block", // Xóa khoảng trống dư thừa
+                            objectFit: "cover",
+                            display: "block",
                           }}
                         />
                         <CardContent
                           sx={{
-                            flexGrow: 1, // Đảm bảo nội dung lấp đầy không gian còn lại
+                            flexGrow: 1,
                             display: "flex",
                             flexDirection: "column",
                             justifyContent: "space-between",
@@ -343,7 +346,8 @@ const MealsPage: React.FC = () => {
                           </Grid>
                         </CardContent>
                       </Card>
-                    </Grid>))}
+                    </Grid>
+                  ))}
                   <Button
                     sx={{
                       position: "relative",
@@ -354,9 +358,8 @@ const MealsPage: React.FC = () => {
                       minHeight: '60px',
                       alignSelf: 'center'
                     }}
-
                     onClick={() => setCurrentPage(() => currentPage + 1)}
-                  disabled={currentPage >= totalPages}
+                    disabled={currentPage >= totalPages}
                   >
                     <ArrowForwardIosIcon fontSize="small" />
                   </Button>

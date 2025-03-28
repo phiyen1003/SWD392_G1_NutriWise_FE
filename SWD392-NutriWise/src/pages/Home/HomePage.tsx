@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, ChefHat, Apple, HeartPulse, Users, Heart, Menu, X, MessageSquare, Home, BookOpen, Sprout, Info } from 'lucide-react';
-import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from "@mui/material";
+import { Box, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
 import { CompleteProfileRequest, firebaseLogin, signOut, updateProfile } from "../../api/accountApi";
 import { getAllRecipes } from "../../api/recipeApi";
+import { getRecipeImagesByRecipeId } from "../../api/recipeImageApi"; // Thêm để lấy hình ảnh
 import { getAllIngredients } from "../../api/ingredientApi";
 import { getAllHealthProfiles } from "../../api/healthProfileApi";
 import { addFavorite } from "../../api/favoriteRecipeApi";
-import { RecipeDTO, IngredientDTO, HealthProfileDTO, CreateFavoriteRecipeDTO } from "../../types/types";
+import { RecipeDTO, IngredientDTO, HealthProfileDTO, CreateFavoriteRecipeDTO, RecipeImageDTO } from "../../types/types";
 import { JSX } from "react/jsx-runtime";
 import AIChat from "../../components/Home/AIChat";
 import AuthModal from "../../components/Home/AuthModal";
@@ -32,11 +33,11 @@ const HomePage: React.FC = () => {
   const [showAIChat, setShowAIChat] = useState<boolean>(false);
   const [user, setUser] = useState<AppUser | null>(null);
   const [recipes, setRecipes] = useState<RecipeDTO[]>([]);
+  const [recipeImages, setRecipeImages] = useState<{ [key: number]: RecipeImageDTO[] }>({}); // State lưu trữ hình ảnh công thức
   const [ingredients, setIngredients] = useState<IngredientDTO[]>([]);
   const [healthProfile, setHealthProfile] = useState<HealthProfileDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  // const [openAuthModal, setOpenAuthModal] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [openLoginPrompt, setOpenLoginPrompt] = useState<boolean>(false);
   const navigate = useNavigate();
@@ -63,9 +64,26 @@ const HomePage: React.FC = () => {
         getAllIngredients(),
         getAllHealthProfiles(),
       ]);
-      setRecipes(Array.isArray(recipesData?.data) ? recipesData.data : []);
+      const recipesArray = Array.isArray(recipesData?.data) ? recipesData.data : [];
+      const limitedRecipes = recipesArray.slice(0, 20); // Giới hạn 20 công thức để tối ưu
+      setRecipes(limitedRecipes);
       setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
       setHealthProfile(Array.isArray(healthProfiles) && healthProfiles.length > 0 ? healthProfiles[0] : null);
+
+      // Lấy hình ảnh cho các công thức hiển thị
+      const imagePromises = limitedRecipes.map(async (recipe) => {
+        const images = await getRecipeImagesByRecipeId(recipe.recipeId);
+        return { recipeId: recipe.recipeId, images };
+      });
+      const imagesData = await Promise.all(imagePromises);
+      const imagesMap = imagesData.reduce(
+        (acc: { [key: number]: RecipeImageDTO[] }, { recipeId, images }) => {
+          acc[recipeId] = images;
+          return acc;
+        },
+        {}
+      );
+      setRecipeImages(imagesMap);
     } catch (err) {
       setError("Không thể tải dữ liệu ban đầu");
       console.error(err);
@@ -88,9 +106,6 @@ const HomePage: React.FC = () => {
           localStorage.setItem("email", currentUser.email || "");
           localStorage.setItem("userId", currentUser.uid);
           setShowAIChat(true);
-          // if (!healthProfile) {
-          //   setOpenAuthModal(true);
-          // }
         });
       } else {
         setUser(null);
@@ -102,7 +117,7 @@ const HomePage: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [healthProfile]);
+  }, []);
 
   useEffect(() => {
     restoreUserState();
@@ -125,16 +140,11 @@ const HomePage: React.FC = () => {
       setUser({ email: response.email || null, token: response.token, userId: response.userId });
       setOpenLoginPrompt(false);
 
-      // Kiểm tra roleId và redirect
       if (response.roleID === 1) {
         navigate("/nutriwise/dashboard");
       } else {
-        navigate("/"); // Giữ nguyên homepage nếu roleId không phải "1"
+        navigate("/");
       }
-
-      // if (!healthProfile) {
-      //   setOpenAuthModal(true); // Mở modal nhập profile nếu chưa có
-      // }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Không thể đăng nhập bằng Google";
       setError(errorMessage);
@@ -174,7 +184,6 @@ const HomePage: React.FC = () => {
       );
       setUser({ email: data.email || null, token: localStorage.getItem("token") || "", userId: data.userId });
       setShowAIChat(true);
-      // setOpenAuthModal(false);
       setError(null);
       alert(response.message || "Hồ sơ đã được cập nhật thành công!");
       navigate("/");
@@ -204,6 +213,14 @@ const HomePage: React.FC = () => {
     const shouldShow = !showAIChat;
     setShowAIChat(shouldShow);
     localStorage.setItem("tempShowAIChat", shouldShow.toString());
+  };
+
+  // Hàm lấy URL hình ảnh công thức
+  const getImageUrl = (recipeId: number): string => {
+    const images = recipeImages[recipeId];
+    return images && images.length > 0
+      ? images[0].imageUrl ?? "https://picsum.photos/300"
+      : "https://picsum.photos/300";
   };
 
   const features: Feature[] = [
@@ -573,15 +590,6 @@ const HomePage: React.FC = () => {
         </motion.div>
       )}
 
-      {/* <AuthModal
-        open={openAuthModal}
-        onClose={() => setOpenAuthModal(false)}
-        onCompleteProfile={handleCompleteProfile}
-        isNewUser={true}
-        userId={user?.userId || ""}
-        email={user?.email || ""}
-      /> */}
-
       <Dialog open={openLoginPrompt} onClose={() => setOpenLoginPrompt(false)}>
         <DialogTitle>Đăng Nhập Với Google</DialogTitle>
         <DialogContent>
@@ -788,9 +796,18 @@ const HomePage: React.FC = () => {
                   overflow: "hidden",
                   transition: "all 0.3s ease",
                   border: "2px solid #DBEAFE",
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "280px",
                 }}
               >
-                <div style={{ position: "relative", display: "flex", justifyContent: "center", paddingTop: "20px" }}>
+                <div style={{ 
+                  position: "relative", 
+                  display: "flex", 
+                  justifyContent: "center", 
+                  paddingTop: "20px",
+                  flexShrink: 0,
+                }}>
                   <img
                     src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop"
                     alt={ingredient.name || `Nguyên liệu ${index + 1}`}
@@ -804,13 +821,38 @@ const HomePage: React.FC = () => {
                     }}
                   />
                 </div>
-                <div style={{ padding: "12px", textAlign: "center" }}>
-                  <h3 style={{ fontSize: "16px", fontWeight: "600", color: "#1F2937", marginBottom: "6px" }}>
-                    {ingredient.name || "Không có tên"}
-                  </h3>
-                  <p style={{ fontSize: "13px", color: "#6B7280", marginBottom: "10px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {ingredient.description || "Không có mô tả"}
-                  </p>
+                <div style={{ 
+                  padding: "12px", 
+                  textAlign: "center", 
+                  flexGrow: 1, 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  justifyContent: "space-between",
+                }}>
+                  <div>
+                    <h3 style={{ 
+                      fontSize: "16px", 
+                      fontWeight: "600", 
+                      color: "#1F2937", 
+                      marginBottom: "6px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}>
+                      {ingredient.name || "Không có tên"}
+                    </h3>
+                    <p style={{ 
+                      fontSize: "13px", 
+                      color: "#6B7280", 
+                      height: "40px",
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}>
+                      {ingredient.description || "Không có mô tả"}
+                    </p>
+                  </div>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -823,6 +865,7 @@ const HomePage: React.FC = () => {
                       cursor: "pointer",
                       transition: "background-color 0.3s",
                       width: "100%",
+                      marginTop: "auto",
                     }}
                     onClick={() => navigate(`/nguyen-lieu/${ingredient.ingredientId}`)}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
@@ -834,7 +877,7 @@ const HomePage: React.FC = () => {
               </motion.div>
             ))}
           </div>
-          {ingredients.length > 6 && (
+          {ingredients.length > 20 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -885,51 +928,112 @@ const HomePage: React.FC = () => {
           >
             <ChefHat style={{ height: "28px", width: "28px", color: "#3B82F6" }} /> Công Thức Nổi Bật
           </motion.h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "25px" }} className="sm:grid-cols-2 lg:grid-cols-3">
-            {recipes.slice(0, 6).map((recipe, index) => (
+          <div style={{
+            display: "flex",
+            overflowX: "auto",
+            gap: "12px",
+            padding: "12px 0",
+            scrollBehavior: "smooth",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "thin",
+            scrollbarColor: "#3B82F6 #DBEAFE",
+          }}>
+            {recipes.slice(0, 20).map((recipe, index) => (
               <motion.div
                 key={recipe.recipeId}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: index * 0.1 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={{ scale: 1.05, boxShadow: "0 10px 15px rgba(0, 0, 0, 0.1)" }}
                 style={{
+                  flex: "0 0 220px",
                   backgroundColor: "#FFFFFF",
                   borderRadius: "12px",
                   boxShadow: "0 3px 5px rgba(0, 0, 0, 0.1)",
                   overflow: "hidden",
-                  transition: "box-shadow 0.3s",
+                  transition: "all 0.3s ease",
                   border: "2px solid #DBEAFE",
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "280px",
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 8px 12px rgba(0, 0, 0, 0.1)")}
-                onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 3px 5px rgba(0, 0, 0, 0.1)")}
               >
-                <img
-                  src="https://images.unsplash.com/photo-1504672281656-e4981d704151?q=80&w=2070&auto=format&fit=crop"
-                  alt={recipe.name || `Công thức ${index + 1}`}
-                  style={{ width: "100%", height: "180px", objectFit: "cover" }}
-                />
-                <div style={{ padding: "20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                    <h3 style={{ fontSize: "16px", fontWeight: "600", color: "#1F2937" }}>{recipe.name || "Không có tên"}</h3>
-                    <button
-                      onClick={() => handleAddFavorite(recipe.recipeId)}
-                      disabled={!user}
-                      style={{
-                        color: "#6B7280",
-                        transition: "color 0.3s",
-                        cursor: user ? "pointer" : "not-allowed",
-                      }}
-                      onMouseOver={(e) => (e.currentTarget.style.color = user ? "#3B82F6" : "#6B7280")}
-                      onMouseOut={(e) => (e.currentTarget.style.color = "#6B7280")}
-                    >
-                      <Heart style={{ height: "18px", width: "18px" }} />
-                    </button>
-                  </div>
-                  <p style={{ fontSize: "13px", color: "#6B7280", marginBottom: "12px" }}>{recipe.description || "Không có mô tả"}</p>
-                  <button
+                <div style={{ 
+                  position: "relative", 
+                  display: "flex", 
+                  justifyContent: "center", 
+                  paddingTop: "20px",
+                  flexShrink: 0,
+                }}>
+                  <img
+                    src={getImageUrl(recipe.recipeId)} // Sử dụng hàm getImageUrl để lấy hình ảnh thực tế
+                    alt={recipe.name || `Công thức ${index + 1}`}
                     style={{
-                      width: "100%",
+                      width: "100px",
+                      height: "100px",
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                      border: "2px solid #3B82F6",
+                      boxShadow: "0 3px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                  <button
+                    onClick={() => handleAddFavorite(recipe.recipeId)}
+                    disabled={!user}
+                    style={{
+                      position: "absolute",
+                      top: "25px",
+                      right: "25px",
+                      color: "#6B7280",
+                      background: "rgba(255, 255, 255, 0.8)",
+                      borderRadius: "50%",
+                      padding: "4px",
+                      transition: "color 0.3s",
+                      cursor: user ? "pointer" : "not-allowed",
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.color = user ? "#3B82F6" : "#6B7280")}
+                    onMouseOut={(e) => (e.currentTarget.style.color = "#6B7280")}
+                  >
+                    <Heart style={{ height: "18px", width: "18px" }} />
+                  </button>
+                </div>
+                <div style={{ 
+                  padding: "12px", 
+                  textAlign: "center", 
+                  flexGrow: 1, 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  justifyContent: "space-between",
+                }}>
+                  <div>
+                    <h3 style={{ 
+                      fontSize: "16px", 
+                      fontWeight: "600", 
+                      color: "#1F2937", 
+                      marginBottom: "6px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}>
+                      {recipe.name || "Không có tên"}
+                    </h3>
+                    <p style={{ 
+                      fontSize: "13px", 
+                      color: "#6B7280", 
+                      height: "40px",
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}>
+                      {recipe.description || "Không có mô tả"}
+                    </p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    style={{
                       padding: "6px 12px",
                       backgroundColor: "#3B82F6",
                       color: "#FFFFFF",
@@ -937,13 +1041,15 @@ const HomePage: React.FC = () => {
                       fontWeight: "500",
                       cursor: "pointer",
                       transition: "background-color 0.3s",
+                      width: "100%",
+                      marginTop: "auto",
                     }}
                     onClick={() => navigate(`/cong-thuc/${recipe.recipeId}`)}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2563EB")}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#3B82F6")}
                   >
                     Xem Chi Tiết
-                  </button>
+                  </motion.button>
                 </div>
               </motion.div>
             ))}
@@ -977,6 +1083,7 @@ const HomePage: React.FC = () => {
           )}
         </div>
       </section>
+
       <Footer />
     </Box>
   );
