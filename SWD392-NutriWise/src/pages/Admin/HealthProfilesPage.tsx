@@ -7,12 +7,15 @@ import { HealthProfileDTO, ProfileDTO } from "../../types/types";
 import apiClient from "../../api/apiClient";
 
 import Layout from "../../components/Admin/Layout";
-import HealthProfileModal from "../../components/Admin/HealthProfileModal";
+import HealthProfileModal, { FormData, ToastProps } from "../../components/Admin/HealthProfileModal";
 import { CustomPagination } from "../../components/PagingComponent";
-import { Toast } from "../../components/ToastComponent";
 import { Search } from "../../components/SearchComponent";
 import FuzzyText from "../../lib/FuzzyText/FuzzyText";
 import { Link } from "react-router-dom";
+
+import { SubmitHandler, useForm, Controller } from "react-hook-form";
+
+import { updateHealthProfile } from "../../api/healthProfileApi";
 
 const HealthProfilesPage: React.FC = () => {
   const [profiles, setProfiles] = useState<HealthProfileDTO[]>([]);
@@ -22,14 +25,18 @@ const HealthProfilesPage: React.FC = () => {
 
   const [open, setOpen] = useState<boolean>(false);
 
-  const [openToast, setOpenToast] = useState<boolean>(false);
-  const [statusCode, setStatusCode] = useState<number>(0);
-  const [information, setInformation] = useState<string>('');
+  const [toast, setToast] = useState<ToastProps>({
+    information: '',
+    openToast: false,
+    statusCode: 0
+  });
 
   const [modalAction, setModalAction] = useState<"create" | "update">("create");
 
   const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [loadingUpdId, setLoadingUpdId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadingButton, setLoadingButton] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -38,6 +45,8 @@ const HealthProfilesPage: React.FC = () => {
   const [orderBy, setOrderBy] = useState<keyof HealthProfileDTO>("healthProfileId");
   const [order, setOrder] = useState<"asc" | "desc">("asc");
   const [query, setQuery] = useState<string>('');
+
+  const [profileId, setProfileId] = useState<number>();
 
   const token = localStorage.getItem('token');
 
@@ -82,11 +91,13 @@ const HealthProfilesPage: React.FC = () => {
     fetchProfiles();
   }, [fetchProfiles]);
 
-  const onToast = (status: number, openToast: boolean, info: string) => {
-    setStatusCode(status);
-    setOpenToast(openToast);
-    setInformation(info);
-  }
+  const onToast = (status: number, open: boolean, info: string) => {
+    setToast({
+      information: info,
+      openToast: open,
+      statusCode: status
+    })
+  };
 
   const getProfile = async (id: number) => {
     const profile = await apiClient.get(`/admin/Dashboard/profile/${id}`, {
@@ -99,9 +110,11 @@ const HealthProfilesPage: React.FC = () => {
   }
 
   const handleOpen = async (healthProf: HealthProfileDTO, action: "create" | "update") => {
+    setLoadingUpdId(`${healthProf.healthProfileId} upd`);
     if (action === 'update') {
       const profile = await getProfile(healthProf.healthProfileId);
       setSelectedHealthProfile(profile);
+      setProfileId(healthProf.healthProfileId);
     } else {
       const profile: ProfileDTO = {
         email: '',
@@ -121,6 +134,7 @@ const HealthProfilesPage: React.FC = () => {
     }
     setModalAction(action);
     setOpen(true);
+    setLoadingUpdId('');
   };
 
   const handleSort = (property: keyof HealthProfileDTO) => {
@@ -157,21 +171,35 @@ const HealthProfilesPage: React.FC = () => {
           }
         }
       } catch (e) {
-        onToast(statusCode, true, 'Có lỗi xảy ra trong quá trình xử lý');
+        onToast(500, true, 'Có lỗi xảy ra trong quá trình xử lý');
       } finally {
         setLoadingId(null)
       }
     }, 300)
   }
 
+  const onSubmitModal: SubmitHandler<FormData> = async (formData) => {
+    try {
+      setLoadingButton(true);
+      if (!formData) return;
+
+      const response = await updateHealthProfile(Number(selectedHealthProfile?.healthProfile.healthProfileId), formData.healthProfile);
+
+      if (response) {
+        setProfiles((prev: HealthProfileDTO[]) =>
+          prev.map(((a) => (a?.healthProfileId === profileId ? response : a)))
+        );
+      }
+    } catch (error) {
+      onToast(500, true, "Có lỗi xảy ra trong quá trình xử lý.");
+    } finally {
+      setLoadingButton(false);
+      setOpen(false);
+    }
+  }
+
   return (
     <Layout title="Quản lý hồ sơ sức khỏe" subtitle="Xem và quản lý các hồ sơ sức khỏe">
-      <Toast
-        onClose={() => setOpenToast(false)}
-        information={information}
-        open={openToast}
-        statusCode={statusCode}
-      ></Toast>
       {loading ? (
         <VStack colorPalette="cyan">
           <Spinner color="colorPalette.600" borderWidth="5px" size="lg" />
@@ -180,12 +208,6 @@ const HealthProfilesPage: React.FC = () => {
       ) : (
         <Box sx={{ p: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-            <Button
-              size="large"
-              variant="contained"
-              onClick={() => handleOpen(initialState, 'create')}>
-              Thêm hồ sơ sức khỏe
-            </Button>
             <Search
               query={query}
               handleSearchChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -250,7 +272,7 @@ const HealthProfilesPage: React.FC = () => {
                           {profile.fullName}
                         </Link>
                       </TableCell>
-                      <TableCell>{profile.gender}</TableCell>
+                      <TableCell>{profile.gender?.slice(0,1).toUpperCase().concat(profile.gender.slice(1))}</TableCell>
                       <TableCell>{profile.height}</TableCell>
                       <TableCell>{profile.weight}</TableCell>
                       <TableCell>
@@ -258,6 +280,7 @@ const HealthProfilesPage: React.FC = () => {
                           <Button color="info"
                             size="small"
                             variant="outlined"
+                            loading={loadingUpdId === `${profile.healthProfileId} upd`}
                             onClick={() => handleOpen(profile, "update")}
                           >
                             Sửa
@@ -279,10 +302,11 @@ const HealthProfilesPage: React.FC = () => {
                 </TableBody>
                 <HealthProfileModal
                   open={open}
-                  action={modalAction}
+                  loading={loadingButton}
+                  onSubmitModal={onSubmitModal}
+                  toast={toast}
                   profile={selectedHealthProfile!}
                   title={modalAction === 'create' ? 'Thêm hồ sơ sức khỏe' : 'Chỉnh sửa hồ sơ sức khỏe'}
-                  setHealthProfiles={setProfiles}
                   handleClose={() => setOpen(false)} />
               </Table>
               <CustomPagination

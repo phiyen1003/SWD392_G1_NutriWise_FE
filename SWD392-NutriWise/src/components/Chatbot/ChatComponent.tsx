@@ -20,8 +20,7 @@ const initialState: ChatMessageDTO = {
 }
 
 export const Chat = ({ setSessions }: ChatProps) => {
-    // const userId = localStorage.getItem('userId');
-    const userId = 1;
+    const userId = localStorage.getItem('userId');
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -29,7 +28,6 @@ export const Chat = ({ setSessions }: ChatProps) => {
     const { sessionId } = useParams();
 
     const [messages, setMessages] = useState<ChatMessageDTO[]>([initialState]);
-    const [aiMessages, setAiMessages] = useState<ChatMessageDTO[]>([initialState]);
     const [prompt, setPrompt] = useState<string>('');
     const [isWaiting, setIsWating] = useState<boolean>(false);
     const [toastInfo, setToastInfo] = useState<{ open: boolean; message: string }>({
