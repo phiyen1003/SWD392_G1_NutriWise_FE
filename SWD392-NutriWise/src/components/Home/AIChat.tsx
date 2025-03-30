@@ -519,6 +519,7 @@ const AIChat: React.FC = () => {
   // Lấy OpenAI API Key từ biến môi trường
   const API_KEY = import.meta.env.VITE_OPEN_API_KEY || "";
 
+  // Kiểm tra API Key khi component mount
   useEffect(() => {
     const validateKey = async () => {
       if (!API_KEY) {
@@ -529,22 +530,19 @@ const AIChat: React.FC = () => {
             sender: "bot",
           },
         ]);
-        return;
       }
     };
-
     validateKey();
   }, [API_KEY]);
 
+  // Cuộn xuống tin nhắn cuối cùng khi có tin nhắn mới
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages.length]);
 
   // Hàm gọi OpenAI API
   const callOpenAIAPI = async (userInput: string): Promise<string> => {
-    if (!API_KEY) {
-      return "Lỗi: OpenAI API Key không được tìm thấy.";
-    }
+    if (!API_KEY) return "Lỗi: OpenAI API Key không được tìm thấy.";
 
     try {
       const response = await axios.post(
@@ -573,30 +571,51 @@ const AIChat: React.FC = () => {
       );
 
       const data = response.data;
-      if (data.choices && data.choices[0] && data.choices[0].message.content) {
-        return data.choices[0].message.content.trim();
-      } else {
-        return "Mình không hiểu câu hỏi, bạn có thể hỏi lại không?";
-      }
+      return (
+        data.choices?.[0]?.message.content?.trim() ||
+        "Mình không hiểu câu hỏi, bạn có thể hỏi lại không?"
+      );
     } catch (err: any) {
       console.error("Error calling OpenAI API:", err.response?.data || err.message);
-      return `Lỗi khi gọi API: ${err.response?.status ? `HTTP ${err.response.status}` : err.message}. Vui lòng thử lại sau!`;
+      const errorMessage = err.response?.data?.error?.message || err.message;
+      return `Lỗi khi gọi API: ${errorMessage || "Không thể kết nối tới OpenAI"}. Vui lòng thử lại sau!`;
     }
   };
 
+  // Hàm gửi tin nhắn
   const sendMessage = useCallback(async () => {
     if (!input.trim()) return;
 
-    const userMessage: Message = { text: input, sender: "user" };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
+    // Kiểm tra API Key trước khi gửi
+    if (!API_KEY) {
+      setMessages((prev) => [
+        ...prev,
+        { text: "Lỗi: OpenAI API Key không được tìm thấy.", sender: "bot" },
+      ]);
+      return;
+    }
 
-    const botResponseText = await callOpenAIAPI(input);
-    const botResponse: Message = { text: botResponseText, sender: "bot" };
-    setMessages((prev) => [...prev, botResponse]);
-    setIsLoading(false);
-  }, [input]);
+    // Kiểm tra xem input có phải tiếng Anh không (cơ bản)
+    if (/^[a-zA-Z0-9\s.,!?]+$/.test(input)) {
+      const userMessage: Message = { text: input, sender: "user" };
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      setIsLoading(true);
+
+      const botResponseText = await callOpenAIAPI(input);
+      const botResponse: Message = { text: botResponseText, sender: "bot" };
+      setMessages((prev) => [...prev, botResponse]);
+      setIsLoading(false);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: "Vui lòng hỏi bằng tiếng Anh để nhận câu trả lời chính xác!",
+          sender: "bot",
+        },
+      ]);
+    }
+  }, [input, API_KEY]);
 
   return (
     <div
@@ -612,6 +631,7 @@ const AIChat: React.FC = () => {
         border: "2px solid #DBEAFE",
       }}
     >
+      {/* Header */}
       <div
         style={{
           textAlign: "center",
@@ -636,6 +656,7 @@ const AIChat: React.FC = () => {
         </a>
       </div>
 
+      {/* Khu vực hiển thị tin nhắn */}
       <div
         style={{
           flex: 1,
@@ -686,6 +707,7 @@ const AIChat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input và nút gửi */}
       <div
         style={{
           display: "flex",
@@ -709,7 +731,7 @@ const AIChat: React.FC = () => {
             fontSize: "15px",
             outline: "none",
             backgroundColor: "#FFFFFF",
-            transition: "border-color 0.3s, box-shadow 0.3s",
+            transition: "border-color 0.3s, box-shadow 0.3s foundational.csss: all 0.3s ease-in-out",
           }}
           onFocus={(e) => {
             e.currentTarget.style.borderColor = "#3B82F6";
